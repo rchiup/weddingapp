@@ -1,14 +1,3 @@
-"""
-Servicio de Firebase
-====================
-
-Encapsula toda la lógica de interacción con Firebase:
-- Firestore (base de datos)
-- Firebase Storage (archivos)
-
-No contiene lógica de negocio, solo operaciones CRUD.
-"""
-
 import os
 import json
 import firebase_admin
@@ -16,109 +5,64 @@ from firebase_admin import credentials, firestore, storage
 
 
 class FirebaseService:
-    """Servicio para operaciones con Firebase"""
-
     def __init__(self):
-        """Inicializa Firebase Admin SDK (Render / Producción)"""
         if not firebase_admin._apps:
             cred_json = os.environ.get("FIREBASE_CREDENTIALS_JSON")
             if not cred_json:
                 raise Exception("FIREBASE_CREDENTIALS_JSON not set")
-
-            bucket_name = os.environ.get("FIREBASE_STORAGE_BUCKET")
-            if not bucket_name:
-                raise Exception("FIREBASE_STORAGE_BUCKET not set")
 
             cred = credentials.Certificate(json.loads(cred_json))
 
             firebase_admin.initialize_app(
                 cred,
                 {
-                    "storageBucket": bucket_name
+                    "storageBucket": os.environ.get("FIREBASE_STORAGE_BUCKET")
                 }
             )
 
         self.db = firestore.client()
-        self.bucket = storage.bucket()
 
-    # ========== Operaciones de Firestore ==========
-
-    def create_document(self, collection: str, data: dict, doc_id: str = None) -> str:
+        # Storage ES OPCIONAL
         try:
-            if doc_id:
-                self.db.collection(collection).document(doc_id).set(data)
-                return doc_id
-            else:
-                doc_ref = self.db.collection(collection).add(data)
-                return doc_ref[1].id
-        except Exception as e:
-            raise Exception(f"Error creando documento: {e}")
+            self.bucket = storage.bucket()
+        except Exception:
+            self.bucket = None
 
-    def get_document(self, collection: str, doc_id: str) -> dict | None:
-        try:
-            doc = self.db.collection(collection).document(doc_id).get()
-            return doc.to_dict() if doc.exists else None
-        except Exception as e:
-            raise Exception(f"Error obteniendo documento: {e}")
+    # ---------- Firestore ----------
 
-    def update_document(self, collection: str, doc_id: str, data: dict) -> None:
-        try:
-            self.db.collection(collection).document(doc_id).update(data)
-        except Exception as e:
-            raise Exception(f"Error actualizando documento: {e}")
+    def create_document(self, collection, data, doc_id=None):
+        if doc_id:
+            self.db.collection(collection).document(doc_id).set(data)
+            return doc_id
+        ref = self.db.collection(collection).add(data)
+        return ref[1].id
 
-    def delete_document(self, collection: str, doc_id: str) -> None:
-        try:
-            self.db.collection(collection).document(doc_id).delete()
-        except Exception as e:
-            raise Exception(f"Error eliminando documento: {e}")
+    def get_document(self, collection, doc_id):
+        doc = self.db.collection(collection).document(doc_id).get()
+        return doc.to_dict() if doc.exists else None
 
-    def query_collection(
-        self,
-        collection: str,
-        filters: list = None,
-        order_by: str = None,
-        limit: int = None
-    ) -> list:
-        try:
-            query = self.db.collection(collection)
+    def update_document(self, collection, doc_id, data):
+        self.db.collection(collection).document(doc_id).update(data)
 
-            if filters:
-                for field, operator, value in filters:
-                    query = query.where(field, operator, value)
+    def delete_document(self, collection, doc_id):
+        self.db.collection(collection).document(doc_id).delete()
 
-            if order_by:
-                query = query.order_by(order_by)
+    # ---------- Storage ----------
 
-            if limit:
-                query = query.limit(limit)
+    def upload_file(self, file_path, destination_path, content_type=None):
+        if not self.bucket:
+            raise Exception("Firebase Storage no configurado")
 
-            return [doc.to_dict() for doc in query.stream()]
-        except Exception as e:
-            raise Exception(f"Error consultando colección: {e}")
+        blob = self.bucket.blob(destination_path)
+        if content_type:
+            blob.content_type = content_type
 
-    # ========== Operaciones de Storage ==========
+        blob.upload_from_filename(file_path)
+        blob.make_public()
+        return blob.public_url
 
-    def upload_file(
-        self,
-        file_path: str,
-        destination_path: str,
-        content_type: str = None
-    ) -> str:
-        try:
-            blob = self.bucket.blob(destination_path)
-            if content_type:
-                blob.content_type = content_type
+    def delete_file(self, file_path):
+        if not self.bucket:
+            raise Exception("Firebase Storage no configurado")
 
-            blob.upload_from_filename(file_path)
-            blob.make_public()
-            return blob.public_url
-        except Exception as e:
-            raise Exception(f"Error subiendo archivo: {e}")
-
-    def delete_file(self, file_path: str) -> None:
-        try:
-            blob = self.bucket.blob(file_path)
-            blob.delete()
-        except Exception as e:
-            raise Exception(f"Error eliminando archivo: {e}")
+        self.bucket.blob(file_path).delete()
