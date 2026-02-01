@@ -25,12 +25,16 @@ class FirebaseService:
             if not cred_json:
                 raise Exception("FIREBASE_CREDENTIALS_JSON not set")
 
+            bucket_name = os.environ.get("FIREBASE_STORAGE_BUCKET")
+            if not bucket_name:
+                raise Exception("FIREBASE_STORAGE_BUCKET not set")
+
             cred = credentials.Certificate(json.loads(cred_json))
 
             firebase_admin.initialize_app(
                 cred,
                 {
-                    "storageBucket": os.environ.get("FIREBASE_STORAGE_BUCKET")
+                    "storageBucket": bucket_name
                 }
             )
 
