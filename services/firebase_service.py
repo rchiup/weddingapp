@@ -6,6 +6,7 @@ from firebase_admin import credentials, firestore, storage
 
 class FirebaseService:
     def __init__(self):
+        # Inicializar Firebase solo una vez
         if not firebase_admin._apps:
             cred_json = os.environ.get("FIREBASE_CREDENTIALS_JSON")
             if not cred_json:
@@ -13,20 +14,29 @@ class FirebaseService:
 
             cred = credentials.Certificate(json.loads(cred_json))
 
+            bucket_name = os.environ.get("FIREBASE_STORAGE_BUCKET")
+
             firebase_admin.initialize_app(
                 cred,
                 {
-                    "storageBucket": os.environ.get("FIREBASE_STORAGE_BUCKET")
+                    "storageBucket": bucket_name
                 }
             )
 
+        # Firestore siempre disponible
         self.db = firestore.client()
 
-        # Storage ES OPCIONAL
-        try:
-            self.bucket = storage.bucket()
-        except Exception:
+        # Inicializar Storage solo si hay bucket válido
+        bucket_name = os.environ.get("FIREBASE_STORAGE_BUCKET")
+
+        if not bucket_name:
             self.bucket = None
+        else:
+            try:
+                self.bucket = storage.bucket(bucket_name)
+            except Exception as e:
+                print("Error inicializando Firebase Storage:", e)
+                self.bucket = None
 
     # ---------- Firestore ----------
 
@@ -54,11 +64,13 @@ class FirebaseService:
             raise Exception("Firebase Storage no configurado")
 
         blob = self.bucket.blob(destination_path)
+
         if content_type:
             blob.content_type = content_type
 
         blob.upload_from_filename(file_path)
         blob.make_public()
+
         return blob.public_url
 
     def delete_file(self, file_path):
