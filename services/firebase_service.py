@@ -1,6 +1,8 @@
 import os
 import json
 import firebase_admin
+import cloudinary
+import cloudinary.uploader
 from firebase_admin import credentials, firestore, storage
 
 
@@ -27,16 +29,27 @@ class FirebaseService:
         self.db = firestore.client()
 
         # Inicializar Storage solo si hay bucket válido
+        self.storage_provider = (os.environ.get("STORAGE_PROVIDER") or "firebase").strip().lower()
         bucket_name = os.environ.get("FIREBASE_STORAGE_BUCKET")
 
-        if not bucket_name:
+        if self.storage_provider == "cloudinary":
+            # TODO: enable Firebase Storage in production
+            cloudinary.config(
+                cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
+                api_key=os.environ.get("CLOUDINARY_API_KEY"),
+                api_secret=os.environ.get("CLOUDINARY_API_SECRET"),
+                secure=True,
+            )
             self.bucket = None
         else:
-            try:
-                self.bucket = storage.bucket(bucket_name)
-            except Exception as e:
-                print("Error inicializando Firebase Storage:", e)
+            if not bucket_name:
                 self.bucket = None
+            else:
+                try:
+                    self.bucket = storage.bucket(bucket_name)
+                except Exception as e:
+                    print("Error inicializando Firebase Storage:", e)
+                    self.bucket = None
 
     # ---------- Firestore ----------
 
@@ -60,6 +73,16 @@ class FirebaseService:
     # ---------- Storage ----------
 
     def upload_file(self, file_path, destination_path, content_type=None):
+        if self.storage_provider == "cloudinary":
+            public_id = self._cloudinary_public_id(destination_path)
+            upload_result = cloudinary.uploader.upload(
+                file_path,
+                public_id=public_id,
+                overwrite=False,
+                resource_type="image",
+            )
+            return upload_result.get("secure_url") or upload_result.get("url")
+
         if not self.bucket:
             raise Exception("Firebase Storage no configurado")
 
@@ -74,7 +97,19 @@ class FirebaseService:
         return blob.public_url
 
     def delete_file(self, file_path):
+        if self.storage_provider == "cloudinary":
+            public_id = self._cloudinary_public_id(file_path)
+            cloudinary.uploader.destroy(public_id, invalidate=True)
+            return
+
         if not self.bucket:
             raise Exception("Firebase Storage no configurado")
 
         self.bucket.blob(file_path).delete()
+
+    def _cloudinary_public_id(self, destination_path):
+        # Quita extensión para usar public_id consistente
+        folder = os.path.dirname(destination_path)
+        filename = os.path.basename(destination_path)
+        public_name = os.path.splitext(filename)[0]
+        return f"{folder}/{public_name}" if folder else public_name

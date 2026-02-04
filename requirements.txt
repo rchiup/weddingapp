@@ -9,6 +9,9 @@ firebase-admin==6.4.0
 # Email (Resend)
 resend==0.7.0
 
+# Cloudinary
+cloudinary==1.44.0
+
 # Utilidades
 python-dotenv==1.0.0
 python-dateutil==2.8.2
