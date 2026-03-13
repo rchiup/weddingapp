@@ -1,50 +1,92 @@
-# Wedding App - Backend (Flask)
+# Wedding App - Aplicación de Matrimonios
 
-API RESTful para la aplicación de matrimonios.
+Aplicación completa tipo "Teamsder" para eventos de matrimonio con módulos adicionales:
+- Conexión de solteros dentro del evento (matches tipo Tinder)
+- Visualización de mesas e invitados
+- Subida de fotos en tiempo real
+- Chat entre matches
 
-## Endpoints
+## Stack Tecnológico
 
-### 🔐 Auth (`/api/auth`)
-- `POST /register` - Registro de usuario
-- `POST /login` - Inicio de sesión
-- `POST /logout` - Cerrar sesión
-- `GET /me` - Obtener usuario actual
-- `POST /reset-password` - Reset de contraseña
+- **Frontend**: Flutter (Dart)
+- **Backend**: Python Flask
+- **Base de datos**: Firebase Firestore
+- **Storage**: Firebase Storage
+- **Email**: Resend
+- **Hosting**: 
+  - Frontend: Vercel / Firebase Hosting
+  - Backend: Render
 
-### 🎉 Events (`/api/events`)
-- `GET /` - Listar eventos
-- `POST /` - Crear evento
-- `GET /<event_id>` - Detalles del evento
-- `GET /<event_id>/tables` - Obtener mesas
-- `POST /<event_id>/tables` - Crear/actualizar mesa
-- `GET /<event_id>/guests` - Obtener invitados
-- `POST /<event_id>/guests` - Invitar usuario
+## Estructura del Proyecto
 
-### 💕 Matches (`/api/matches`)
-- `GET /<event_id>/potential` - Usuarios potenciales
-- `POST /<event_id>/like` - Dar like
-- `POST /<event_id>/pass` - Rechazar usuario
-- `GET /<event_id>` - Obtener matches
+```
+/
+├── app/                    # Aplicación Flutter
+│   └── lib/
+│       ├── auth/          # Módulo de autenticación
+│       ├── matches/       # Módulo de conexiones
+│       ├── chat/          # Módulo de mensajería
+│       ├── event/         # Módulo de eventos
+│       ├── gallery/       # Módulo de galería
+│       ├── admin/         # Módulo de administración
+│       ├── models/        # Modelos de datos
+│       ├── services/      # Servicios (lógica de negocio)
+│       ├── utils/         # Utilidades
+│       └── main.dart      # Punto de entrada
+│
+└── backend/               # API Flask
+    ├── routes/           # Endpoints por módulo
+    ├── services/         # Servicios (Firebase, Resend, etc.)
+    ├── app.py            # Aplicación principal
+    └── requirements.txt  # Dependencias Python
+```
 
-### 💬 Chat (`/api/chat`)
-- `GET /conversations` - Listar conversaciones
-- `GET /<chat_id>/messages` - Obtener mensajes
-- `POST /<chat_id>/messages` - Enviar mensaje
-- `POST /create` - Crear/obtener chat
-- `POST /<chat_id>/read` - Marcar como leído
+## Arquitectura
 
-### 📸 Gallery (`/api/gallery`)
-- `GET /<event_id>/photos` - Listar fotos
-- `POST /<event_id>/photos` - Subir foto
-- `DELETE /photos/<photo_id>` - Eliminar foto
-- `POST /photos/<photo_id>/like` - Like a foto
+### Frontend (Flutter)
 
-## Configuración
+La aplicación sigue una arquitectura modular con separación de responsabilidades:
+
+- **Providers**: Gestión de estado usando Provider pattern
+- **Services**: Lógica de negocio y comunicación con Firebase
+- **Models**: Modelos de datos tipados
+- **Screens**: Pantallas de UI
+- **Utils**: Utilidades reutilizables
+
+### Backend (Flask)
+
+API RESTful organizada por módulos:
+
+- **Routes**: Endpoints agrupados por funcionalidad (auth, events, matches, etc.)
+- **Services**: Servicios encapsulados (Firebase, Resend)
+- **Utils**: Funciones auxiliares (validación, decorators)
+
+## Configuración Inicial
+
+### Frontend (Flutter)
+
+1. Instalar dependencias:
+```bash
+cd app
+flutter pub get
+```
+
+2. Configurar Firebase:
+   - Agregar `google-services.json` (Android) y `GoogleService-Info.plist` (iOS)
+   - Configurar `firebase_options.dart`
+
+3. Ejecutar:
+```bash
+flutter run
+```
+
+### Backend (Flask)
 
 1. Crear entorno virtual:
 ```bash
+cd backend
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate  # En Windows: venv\Scripts\activate
 ```
 
 2. Instalar dependencias:
@@ -54,15 +96,38 @@ pip install -r requirements.txt
 
 3. Configurar variables de entorno:
    - Copiar `env.example` a `.env`
-   - Configurar credenciales
+   - Configurar credenciales de Firebase y Resend
 
 4. Ejecutar:
 ```bash
 python app.py
 ```
 
-## Servicios
+## Estado del Proyecto
 
-- **FirebaseService**: Operaciones con Firestore y Storage
-- **ResendService**: Envío de emails
-- **Utils**: Validación y helpers
+⚠️ **Estructura Base Completa**
+
+Este proyecto contiene la estructura inicial con:
+- ✅ Arquitectura modular y escalable
+- ✅ Archivos base con funciones mock
+- ✅ Comentarios explicativos en cada módulo
+- ✅ Separación clara de responsabilidades
+- ✅ Preparado para escalar sin volverse un monstruo
+
+**Próximos pasos:**
+- Implementar lógica de negocio en cada módulo
+- Configurar Firebase y Resend
+- Desarrollar UI completa
+- Implementar autenticación
+- Agregar tests
+
+## Notas de Desarrollo
+
+- Todos los módulos tienen funciones mock vacías listas para implementar
+- La estructura está diseñada para mantenibilidad a largo plazo
+- Cada módulo es independiente y puede desarrollarse en paralelo
+- Los servicios encapsulan la lógica de negocio, no la UI
+
+## Licencia
+
+Proyecto privado - Todos los derechos reservados
