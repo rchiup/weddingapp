@@ -17,56 +17,35 @@ from services.firebase_service import FirebaseService
 gallery_bp = Blueprint('gallery', __name__)
 firebase_service = FirebaseService()
 
+
 @gallery_bp.route('/<event_id>/photos', methods=['GET'])
 def get_photos(event_id):
     """
     Obtiene las fotos de un evento
-    
-    Headers:
-        - Authorization: Bearer token
-    
-    Query params:
-        - limit: number (opcional, default 20)
-        - before: timestamp (opcional, para paginación)
     """
     try:
-        # TODO: Validar token
-        # TODO: Consultar fotos desde Firestore
         return jsonify({'photos': []}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
 
 @gallery_bp.route('/<event_id>/photos', methods=['POST'])
 def upload_photo(event_id):
     """
     Sube una foto al evento
-    
-    Headers:
-        - Authorization: Bearer token
-    
-    Body (multipart/form-data):
-        - file: archivo de imagen
-        - caption: string (opcional)
     """
     try:
-        # TODO: Validar token
-        # TODO: Validar archivo (tipo, tamaño)
-        # TODO: Subir a Firebase Storage
-        # TODO: Guardar metadatos en Firestore
         return jsonify({'photoId': '', 'message': 'Foto subida'}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
 
 @gallery_bp.route('/upload', methods=['POST'])
 def upload_gallery_image():
     """
     Sube una imagen a Firebase Storage y guarda metadata en Firestore.
-    
-    Body (multipart/form-data):
-        - file: archivo de imagen
-        - eventId: string
-        - userId: string
     """
+
     try:
         max_size_bytes = 5 * 1024 * 1024
 
@@ -120,50 +99,43 @@ def upload_gallery_image():
             'eventId': event_id,
             'createdAt': datetime.now(timezone.utc).isoformat(),
         }
+
         photo_id = firebase_service.create_document('gallery', doc_data)
 
         return jsonify({'photoId': photo_id, 'imageUrl': image_url}), 201
+
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
 
 @gallery_bp.route('/photos/<photo_id>', methods=['DELETE'])
 def delete_photo(photo_id):
     """
     Elimina una foto
-    
-    Headers:
-        - Authorization: Bearer token (requiere ser el autor o admin)
     """
     try:
-        # TODO: Validar token y permisos
-        # TODO: Eliminar de Firebase Storage
-        # TODO: Eliminar documento de Firestore
         return jsonify({'message': 'Foto eliminada'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
 
 @gallery_bp.route('/photos/<photo_id>/like', methods=['POST'])
 def like_photo(photo_id):
     """
     Da like a una foto
-    
-    Headers:
-        - Authorization: Bearer token
     """
     try:
-        # TODO: Validar token
-        # TODO: Actualizar contador de likes en Firestore
         return jsonify({'message': 'Like registrado'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
 
 @gallery_bp.route('/event/<event_id>', methods=['GET'])
 def get_event_photos(event_id):
     """
     Lista fotos de un evento
-
-    TODO: enable auth in production
     """
+
     if not event_id:
         return jsonify({'error': 'eventId requerido'}), 400
 
@@ -177,11 +149,14 @@ def get_event_photos(event_id):
         )
 
         items = []
+
         for doc in query.stream():
             data = doc.to_dict() or {}
             created_at = data.get('createdAt')
+
             if hasattr(created_at, 'isoformat'):
                 created_at = created_at.isoformat()
+
             items.append({
                 'photoId': doc.id,
                 'imageUrl': data.get('imageUrl', ''),
@@ -191,5 +166,49 @@ def get_event_photos(event_id):
             })
 
         return jsonify({'items': items}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ------------------------------
+# NUEVO ENDPOINT PARA FALLBACK
+# ------------------------------
+
+@gallery_bp.route('/event/<event_id>/photo/likes', methods=['GET'])
+def get_photo_likes(event_id):
+    """
+    Fallback para obtener likes cuando Firestore Web falla.
+
+    Query params:
+    - likesKey
+    - userId
+    """
+
+    likes_key = request.args.get('likesKey')
+    user_id = request.args.get('userId')
+
+    if not likes_key or not user_id:
+        return jsonify({'error': 'likesKey y userId son requeridos'}), 400
+
+    try:
+
+        likes_ref = (
+            firebase_service.db
+            .collection('events')
+            .document(event_id)
+            .collection('photos')
+            .document(likes_key)
+            .collection('likes')
+        )
+
+        count = sum(1 for _ in likes_ref.stream())
+        user_liked = likes_ref.document(user_id).get().exists
+
+        return jsonify({
+            "count": count,
+            "userLiked": user_liked
+        }), 200
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
