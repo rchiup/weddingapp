@@ -1,0 +1,17 @@
+# Ping al backend en Render para que no se duerma (free tier se apaga ~15 min sin tráfico)
+name: Ping Render backend
+
+on:
+  schedule:
+    # Cada 14 minutos (cron: minuto hora día mes día-semana)
+    - cron: '*/14 * * * *'
+  workflow_dispatch: # Permite lanzar manualmente desde Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" --max-time 120 https://weddingapp-c6ix.onrender.com/ || true
+          echo " (ping done)"

@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- DEMO: permitir likes en fotos ---
+    match /events/{eventId}/photos/{photoId}/likes/{userId} {
+      allow read, write;
+    }
+
+    // --- DEMO: permitir comentarios en fotos ---
+    match /events/{eventId}/photos/{photoId}/comments/{commentId} {
+      allow read, write;
+    }
+
+    // --- DEMO: permitir check-in e invitados ligados al check-in ---
+    match /events/{eventId}/checkins/{userId} {
+      allow read, write;
+    }
+    match /events/{eventId}/guests/{userId} {
+      allow read, write;
+    }
+
+    // Todo lo demás sigue bloqueado
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
