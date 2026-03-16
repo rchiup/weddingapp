@@ -106,7 +106,8 @@ class _MesasSearchScreenState extends State<MesasSearchScreen> {
                       if (!mounted) return;
                       if (table == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Invitado no encontrado')),
+                          const SnackBar(
+                              content: Text('Invitado no encontrado')),
                         );
                         return;
                       }
