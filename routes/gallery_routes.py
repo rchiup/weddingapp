@@ -105,11 +105,59 @@ def delete_photo(photo_id):
         return jsonify({'error': str(e)}), 400
 
 
-@gallery_bp.route('/photos/<photo_id>/like', methods=['POST'])
-def like_photo(photo_id):
+@gallery_bp.route('/photos/<photo_id>/likes/toggle', methods=['POST'])
+def toggle_photo_like(photo_id):
+    """
+    Toggle de like sobre una foto.
+
+    Capa de backend: escribe/borra en:
+      gallery/{photoId}/likes/{userId}
+    para evitar depender del estado offline del SDK web.
+
+    Body JSON esperado:
+    {
+      "userId": "...",
+      "name": "Nombre a mostrar (opcional)"
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    user_id = data.get('userId')
+    name = (data.get('name') or '').strip() or 'Invitado'
+
+    if not user_id:
+        return jsonify({'error': 'userId requerido'}), 400
 
     try:
-        return jsonify({'message': 'Like registrado'}), 200
+        likes_ref = (
+            firebase_service.db
+            .collection('gallery')
+            .document(photo_id)
+            .collection('likes')
+        )
+
+        user_like_ref = likes_ref.document(user_id)
+        snap = user_like_ref.get()
+
+        if snap.exists:
+            # Ya tenía like -> eliminar (unlike)
+            user_like_ref.delete()
+            liked = False
+        else:
+            # No tenía like -> crear
+            user_like_ref.set({
+                'name': name,
+                'timestamp': datetime.now(timezone.utc).isoformat(),
+            })
+            liked = True
+
+        # Recontar likes actuales
+        count = sum(1 for _ in likes_ref.stream())
+
+        return jsonify({
+            'liked': liked,
+            'count': count,
+        }), 200
+
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
@@ -155,34 +203,42 @@ def get_event_photos(event_id):
 
 
 # ------------------------------
-# ENDPOINT PARA FALLBACK LIKES
+# ENDPOINT PARA CONSULTAR LIKES
 # ------------------------------
 
-@gallery_bp.route('/event/<event_id>/photo/likes', methods=['GET'])
-def get_photo_likes(event_id):
+@gallery_bp.route('/photos/<photo_id>/likes', methods=['GET'])
+def get_photo_likes(photo_id):
+    """
+    Devuelve número de likes y si un usuario concreto dio like.
 
-    likes_key = request.args.get('likesKey')
+    Parámetros de query:
+      - userId (opcional): si se pasa, se evalúa userLiked.
+
+    Respuesta:
+    {
+      "count": <int>,
+      "userLiked": <bool>
+    }
+    """
     user_id = request.args.get('userId')
 
-    if not likes_key or not user_id:
-        return jsonify({'error': 'likesKey y userId son requeridos'}), 400
-
     try:
-
         likes_ref = (
             firebase_service.db
             .collection('gallery')
-            .document(likes_key)
+            .document(photo_id)
             .collection('likes')
         )
 
         count = sum(1 for _ in likes_ref.stream())
+        user_liked = False
 
-        user_liked = likes_ref.document(user_id).get().exists
+        if user_id:
+            user_liked = likes_ref.document(user_id).get().exists
 
         return jsonify({
-            "count": count,
-            "userLiked": user_liked
+            'count': count,
+            'userLiked': user_liked,
         }), 200
 
     except Exception as e:
