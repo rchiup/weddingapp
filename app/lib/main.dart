@@ -1,4 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -8,7 +10,7 @@ import 'utils/qa_config.dart';
 import 'utils/router.dart';
 
 /// Punto de entrada principal de la aplicación
-/// 
+///
 /// Inicializa Firebase y configura los providers globales
 /// para gestión de estado (autenticación, eventos, etc.)
 void main() async {
@@ -17,6 +19,16 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Evitar error "client is offline" en web: forzar red y sin persistencia
+  final firestore = FirebaseFirestore.instance;
+  if (kIsWeb) {
+    firestore.settings = const Settings(
+      persistenceEnabled: false,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
+  }
+  await firestore.enableNetwork();
 
   final userContext = UserContextProvider();
   await userContext.initialize();

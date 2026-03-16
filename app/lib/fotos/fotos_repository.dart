@@ -26,6 +26,31 @@ class FotosRepository {
         .toList();
   }
 
+  /// Fallback cuando el cliente Firestore está offline: el backend lee en Firestore
+  /// y devuelve count y userLiked. Requiere GET /api/gallery/event/:eventId/photo/likes?likesKey=...&userId=...
+  Future<({int count, bool userLiked})?> getPhotoLikes(
+    String eventId,
+    String likesKey,
+    String userId,
+  ) async {
+    try {
+      final uri = Uri.parse(_backendBaseUrl).replace(
+        path: '/api/gallery/event/$eventId/photo/likes',
+        queryParameters: {'likesKey': likesKey, 'userId': userId},
+      );
+      final response = await _dio.get(uri.toString());
+      final data = response.data as Map<String, dynamic>?;
+      if (data == null) return null;
+      final count = (data['count'] is int)
+          ? data['count'] as int
+          : (int.tryParse('${data['count']}') ?? 0);
+      final userLiked = data['userLiked'] == true;
+      return (count: count, userLiked: userLiked);
+    } on DioException catch (_) {
+      return null;
+    }
+  }
+
   Future<FotoModel> uploadPhoto({
     required String eventId,
     required String userId,

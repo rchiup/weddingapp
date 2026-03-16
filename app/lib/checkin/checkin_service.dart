@@ -11,6 +11,7 @@ class CheckinService {
     required String userId,
     required String name,
   }) async {
+    // Registro de check-in para estadísticas
     await _firestore
         .collection('events')
         .doc(eventId)
@@ -20,5 +21,18 @@ class CheckinService {
       'name': name,
       'timestamp': FieldValue.serverTimestamp(),
     });
+
+    // Para la demo: marcar al invitado como "llegó"
+    await _firestore
+        .collection('events')
+        .doc(eventId)
+        .collection('guests')
+        .doc(userId)
+        .set({
+      'name': name,
+      'nameLower': name.toLowerCase(),
+      'status': 'arrived',
+      'tableNumber': '',
+    }, SetOptions(merge: true));
   }
 }

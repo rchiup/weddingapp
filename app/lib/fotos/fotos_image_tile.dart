@@ -69,7 +69,7 @@ class FotosImageTile extends StatelessWidget {
               const Icon(Icons.favorite_border, size: 14, color: Colors.grey),
               const SizedBox(width: 2),
               StreamBuilder<int>(
-                stream: FotosSocialService().watchLikeCount(eventId, photo.id),
+                stream: FotosSocialService().watchLikeCount(eventId, photo.likesKey),
                 builder: (_, snap) => Text(
                   '${snap.data ?? 0}',
                   style: const TextStyle(fontSize: 12),

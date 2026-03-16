@@ -7,6 +7,16 @@ class FotoModel {
   final String uploadedBy;
   final DateTime createdAt;
 
+  /// Clave estable para likes/comentarios (misma URL = misma clave aunque el backend cambie photoId)
+  /// Firestore doc id solo permite [a-zA-Z0-9_-]
+  String get likesKey {
+    if (url.isEmpty) return id;
+    final safe = url.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    if (safe.isEmpty) return id;
+    if (safe.length <= 1500) return safe;
+    return safe.substring(0, 1500);
+  }
+
   FotoModel({
     required this.id,
     required this.url,

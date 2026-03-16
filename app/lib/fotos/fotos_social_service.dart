@@ -5,6 +5,7 @@ class FotosSocialService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // ——— Likes ——— events/{eventId}/photos/{photoId}/likes/{userId}
+  /// Cuenta con get() para no depender de RunAggregationQuery (reglas a veces no permiten count)
   Future<int> getLikeCount(String eventId, String photoId) async {
     final snap = await _firestore
         .collection('events')
@@ -12,9 +13,8 @@ class FotosSocialService {
         .collection('photos')
         .doc(photoId)
         .collection('likes')
-        .count()
         .get();
-    return snap.count ?? 0;
+    return snap.docs.length;
   }
 
   Stream<int> watchLikeCount(String eventId, String photoId) {
@@ -40,11 +40,29 @@ class FotosSocialService {
     return doc.exists;
   }
 
+  /// Stream del like del usuario actual (actualización en tiempo real)
+  Stream<bool> watchUserLike(String eventId, String photoId, String userId) {
+    if (eventId.isEmpty || photoId.isEmpty || userId.isEmpty) {
+      return Stream.value(false);
+    }
+    return _firestore
+        .collection('events')
+        .doc(eventId)
+        .collection('photos')
+        .doc(photoId)
+        .collection('likes')
+        .doc(userId)
+        .snapshots()
+        .map((s) => s.exists);
+  }
+
+  /// [isLikedNow] = estado actual desde la UI (evita el get() que falla si está offline)
   Future<void> toggleLike({
     required String eventId,
     required String photoId,
     required String userId,
     required String name,
+    required bool isLikedNow,
   }) async {
     final ref = _firestore
         .collection('events')
@@ -53,14 +71,24 @@ class FotosSocialService {
         .doc(photoId)
         .collection('likes')
         .doc(userId);
-    final doc = await ref.get();
-    if (doc.exists) {
-      await ref.delete();
-    } else {
-      await ref.set({
-        'name': name,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
+
+    const maxAttempts = 3;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        await _firestore.enableNetwork();
+        if (isLikedNow) {
+          await ref.delete();
+        } else {
+          await ref.set({
+            'name': name,
+            'timestamp': FieldValue.serverTimestamp(),
+          });
+        }
+        return;
+      } catch (e) {
+        if (attempt == maxAttempts) rethrow;
+        await Future<void>.delayed(const Duration(milliseconds: 800));
+      }
     }
   }
 
