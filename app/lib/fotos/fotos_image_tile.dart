@@ -4,21 +4,37 @@ import 'package:provider/provider.dart';
 import '../user_context/user_context_provider.dart';
 import 'foto_model.dart';
 import 'fotos_fullscreen_screen.dart';
-import 'fotos_social_service.dart';
+import 'fotos_repository.dart';
 
-/// Tile de foto con recorte, "Subido por", likes/comentarios y apertura a pantalla completa
-class FotosImageTile extends StatelessWidget {
+/// Tile de foto con recorte, "Subido por", like count vía API y apertura a pantalla completa
+class FotosImageTile extends StatefulWidget {
   final FotoModel photo;
   final String eventId;
 
   const FotosImageTile({super.key, required this.photo, required this.eventId});
 
   @override
+  State<FotosImageTile> createState() => _FotosImageTileState();
+}
+
+class _FotosImageTileState extends State<FotosImageTile> {
+  Future<({int count, bool userLiked})?>? _likesFuture;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_likesFuture == null && widget.photo.id.isNotEmpty) {
+      final userId = context.read<UserContextProvider>().userId ?? '';
+      _likesFuture = FotosRepository().getPhotoLikes(widget.photo.id, userId);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final userContext = context.watch<UserContextProvider>();
     final userId = userContext.userId ?? '';
     final userName = userContext.userName ?? 'Invitado';
-    final uploadedByName = photo.uploadedBy == userId
+    final uploadedByName = widget.photo.uploadedBy == userId
         ? (userName != 'Invitado' ? userName : 'Tú')
         : 'Invitado';
 
@@ -27,8 +43,8 @@ class FotosImageTile extends StatelessWidget {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => FotosFullscreenScreen(
-              photo: photo,
-              eventId: eventId,
+              photo: widget.photo,
+              eventId: widget.eventId,
             ),
           ),
         );
@@ -42,7 +58,7 @@ class FotosImageTile extends StatelessWidget {
             child: AspectRatio(
               aspectRatio: 1,
               child: Image.network(
-                photo.url,
+                widget.photo.url,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => const Center(
                   child: Icon(Icons.broken_image_outlined),
@@ -68,10 +84,10 @@ class FotosImageTile extends StatelessWidget {
             children: [
               const Icon(Icons.favorite_border, size: 14, color: Colors.grey),
               const SizedBox(width: 2),
-              StreamBuilder<int>(
-                stream: FotosSocialService().watchLikeCount(eventId, photo.likesKey),
+              FutureBuilder<({int count, bool userLiked})?>(
+                future: _likesFuture,
                 builder: (_, snap) => Text(
-                  '${snap.data ?? 0}',
+                  '${snap.data?.count ?? 0}',
                   style: const TextStyle(fontSize: 12),
                 ),
               ),

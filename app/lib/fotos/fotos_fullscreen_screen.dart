@@ -31,58 +31,18 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
     _loadInitialLikes();
   }
 
+  /// Carga likes desde la API (backend lee gallery/{photoId}/likes). Sin Firestore.
   Future<void> _loadInitialLikes() async {
-    final eventId = widget.eventId;
-    final likesKey = widget.photo.likesKey;
-    debugPrint('[Like] Load photo url=${widget.photo.url} likesKey=$likesKey eventId=$eventId');
-    if (eventId.isEmpty || likesKey.isEmpty) return;
+    final photoId = widget.photo.id;
+    if (photoId.isEmpty) return;
     final userId = context.read<UserContextProvider>().userId ?? '';
-    await Future<void>.delayed(const Duration(milliseconds: 800));
     if (!mounted) return;
-    const maxAttempts = 6;
-    const delayMs = 1500;
-    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        await FirebaseFirestore.instance.enableNetwork();
-        if (attempt > 1) {
-          await Future<void>.delayed(const Duration(milliseconds: delayMs));
-        }
-        final count = await _socialService.getLikeCount(eventId, likesKey);
-        final liked = userId.isNotEmpty
-            ? await _socialService.isLikedBy(eventId, likesKey, userId)
-            : false;
-        debugPrint('[Like] Initial count=$count isLiked=$liked (eventId=$eventId likesKey=$likesKey)');
-        if (mounted) {
-          setState(() {
-            _initialLikeCount = count;
-            _initialIsLiked = liked;
-          });
-        }
-        return;
-      } catch (e) {
-        debugPrint('[Like] Load error (attempt $attempt/$maxAttempts): $e');
-        if (attempt == maxAttempts) {
-          // Fallback: leer likes desde el backend (evita "client is offline" en web)
-          try {
-            final result = await _fotosRepository.getPhotoLikes(
-              eventId,
-              likesKey,
-              userId,
-            );
-            if (result != null && mounted) {
-              setState(() {
-                _initialLikeCount = result.count;
-                _initialIsLiked = result.userLiked;
-              });
-              debugPrint('[Like] Fallback backend: count=${result.count} userLiked=${result.userLiked}');
-            }
-          } catch (e2) {
-            debugPrint('[Like] Fallback backend error: $e2');
-          }
-          return;
-        }
-        await Future<void>.delayed(const Duration(milliseconds: delayMs));
-      }
+    final result = await _fotosRepository.getPhotoLikes(photoId, userId);
+    if (result != null && mounted) {
+      setState(() {
+        _initialLikeCount = result.count;
+        _initialIsLiked = result.userLiked;
+      });
     }
   }
 
@@ -137,77 +97,48 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      StreamBuilder<int>(
-                        stream: _socialService.watchLikeCount(
-                            widget.eventId, widget.photo.likesKey),
-                        builder: (_, countSnap) {
-                          final count = countSnap.data ?? _initialLikeCount ?? 0;
-                          return StreamBuilder<bool>(
-                            stream: _socialService.watchUserLike(
-                              widget.eventId,
-                              widget.photo.likesKey,
-                              userId,
-                            ),
-                            builder: (_, likeSnap) {
-                              final isLiked = likeSnap.data ?? _initialIsLiked ?? false;
-                              return Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    onPressed: () async {
-                                      if (widget.eventId.isEmpty ||
-                                          widget.photo.likesKey.isEmpty ||
-                                          userId.isEmpty) {
-                                        debugPrint(
-                                            '[Like] Faltan datos: eventId=${widget.eventId}, likesKey=${widget.photo.likesKey}, userId=$userId');
-                                        if (mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(const SnackBar(
-                                            content: Text(
-                                                'No se pudo dar like. Verifica que estés en un evento.'),
-                                          ));
-                                        }
-                                        return;
-                                      }
-                                      debugPrint(
-                                          '[Like] Toggle: eventId=${widget.eventId}, likesKey=${widget.photo.likesKey}, userId=$userId');
-                                      try {
-                                        await _socialService.toggleLike(
-                                          eventId: widget.eventId,
-                                          photoId: widget.photo.likesKey,
-                                          userId: userId,
-                                          name: userName,
-                                          isLikedNow: isLiked,
-                                        );
-                                        debugPrint('[Like] OK');
-                                      } catch (e, stack) {
-                                        debugPrint('[Like] Error: $e');
-                                        debugPrint('[Like] Stack: $stack');
-                                        if (mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(SnackBar(
-                                            content: Text(
-                                                'Error al dar like: $e'),
-                                          ));
-                                        }
-                                      }
-                                    },
-                                    icon: Icon(
-                                      isLiked
-                                          ? Icons.favorite
-                                          : Icons.favorite_border,
-                                      color: isLiked ? Colors.red : null,
-                                    ),
-                                    tooltip:
-                                        isLiked ? 'Quitar like' : 'Me gusta',
-                                  ),
-                                  Text('$count'),
-                                ],
+                      IconButton(
+                        onPressed: () async {
+                          if (widget.photo.id.isEmpty || userId.isEmpty) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                      'No se pudo dar like. Verifica que estés en un evento.'),
+                                ),
                               );
-                            },
+                            }
+                            return;
+                          }
+                          final result = await _fotosRepository.togglePhotoLike(
+                            widget.photo.id,
+                            userId,
+                            userName,
                           );
+                          if (result != null && mounted) {
+                            setState(() {
+                              _initialLikeCount = result.count;
+                              _initialIsLiked = result.liked;
+                            });
+                          } else if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Error al dar like. Intenta de nuevo.'),
+                              ),
+                            );
+                          }
                         },
+                        icon: Icon(
+                          (_initialIsLiked ?? false)
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          color: (_initialIsLiked ?? false) ? Colors.red : null,
+                        ),
+                        tooltip: (_initialIsLiked ?? false)
+                            ? 'Quitar like'
+                            : 'Me gusta',
                       ),
+                      Text('${_initialLikeCount ?? 0}'),
                       const Text(' likes'),
                     ],
                   ),

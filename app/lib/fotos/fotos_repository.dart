@@ -26,17 +26,17 @@ class FotosRepository {
         .toList();
   }
 
-  /// Fallback cuando el cliente Firestore está offline: el backend lee en Firestore
-  /// y devuelve count y userLiked. Requiere GET /api/gallery/event/:eventId/photo/likes?likesKey=...&userId=...
+  /// Lee likes de una foto desde la API (backend escribe/lee en gallery/{photoId}/likes).
+  /// GET /api/gallery/photos/<photoId>/likes?userId=...
   Future<({int count, bool userLiked})?> getPhotoLikes(
-    String eventId,
-    String likesKey,
+    String photoId,
     String userId,
   ) async {
+    if (photoId.isEmpty) return null;
     try {
       final uri = Uri.parse(_backendBaseUrl).replace(
-        path: '/api/gallery/event/$eventId/photo/likes',
-        queryParameters: {'likesKey': likesKey, 'userId': userId},
+        path: '/api/gallery/photos/$photoId/likes',
+        queryParameters: userId.isNotEmpty ? {'userId': userId} : null,
       );
       final response = await _dio.get(uri.toString());
       final data = response.data as Map<String, dynamic>?;
@@ -46,6 +46,31 @@ class FotosRepository {
           : (int.tryParse('${data['count']}') ?? 0);
       final userLiked = data['userLiked'] == true;
       return (count: count, userLiked: userLiked);
+    } on DioException catch (_) {
+      return null;
+    }
+  }
+
+  /// Toggle like en la API. Backend escribe en gallery/{photoId}/likes/{userId}.
+  /// POST /api/gallery/photos/<photoId>/likes/toggle
+  Future<({bool liked, int count})?> togglePhotoLike(
+    String photoId,
+    String userId,
+    String name,
+  ) async {
+    if (photoId.isEmpty || userId.isEmpty) return null;
+    try {
+      final response = await _dio.post(
+        '$_backendBaseUrl/api/gallery/photos/$photoId/likes/toggle',
+        data: {'userId': userId, 'name': name.isNotEmpty ? name : 'Invitado'},
+      );
+      final data = response.data as Map<String, dynamic>?;
+      if (data == null) return null;
+      final liked = data['liked'] == true;
+      final count = (data['count'] is int)
+          ? data['count'] as int
+          : (int.tryParse('${data['count']}') ?? 0);
+      return (liked: liked, count: count);
     } on DioException catch (_) {
       return null;
     }
