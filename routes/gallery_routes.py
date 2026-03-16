@@ -20,9 +20,6 @@ firebase_service = FirebaseService()
 
 @gallery_bp.route('/<event_id>/photos', methods=['GET'])
 def get_photos(event_id):
-    """
-    Obtiene las fotos de un evento
-    """
     try:
         return jsonify({'photos': []}), 200
     except Exception as e:
@@ -31,9 +28,6 @@ def get_photos(event_id):
 
 @gallery_bp.route('/<event_id>/photos', methods=['POST'])
 def upload_photo(event_id):
-    """
-    Sube una foto al evento
-    """
     try:
         return jsonify({'photoId': '', 'message': 'Foto subida'}), 201
     except Exception as e:
@@ -42,11 +36,9 @@ def upload_photo(event_id):
 
 @gallery_bp.route('/upload', methods=['POST'])
 def upload_gallery_image():
-    """
-    Sube una imagen a Firebase Storage y guarda metadata en Firestore.
-    """
 
     try:
+
         max_size_bytes = 5 * 1024 * 1024
 
         if 'file' not in request.files:
@@ -62,21 +54,14 @@ def upload_gallery_image():
         if not file.filename:
             return jsonify({'error': 'Nombre de archivo inválido'}), 400
 
-        if file.content_length and file.content_length > max_size_bytes:
-            return jsonify({'error': 'Archivo excede 5MB'}), 400
-
-        if request.content_length and request.content_length > max_size_bytes:
-            return jsonify({'error': 'Archivo excede 5MB'}), 400
-
         allowed_types = {'image/jpeg', 'image/jpg', 'image/png'}
         if file.mimetype not in allowed_types:
             return jsonify({'error': 'Tipo de archivo inválido'}), 400
 
         file_ext = os.path.splitext(file.filename or '')[1].lower() or '.jpg'
-        if file_ext not in {'.jpg', '.jpeg', '.png'}:
-            return jsonify({'error': 'Extensión inválida'}), 400
 
         image_id = str(uuid.uuid4())
+
         destination_path = f'gallery/{event_id}/{user_id}/{image_id}{file_ext}'
 
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
@@ -102,7 +87,10 @@ def upload_gallery_image():
 
         photo_id = firebase_service.create_document('gallery', doc_data)
 
-        return jsonify({'photoId': photo_id, 'imageUrl': image_url}), 201
+        return jsonify({
+            'photoId': photo_id,
+            'imageUrl': image_url
+        }), 201
 
     except Exception as e:
         return jsonify({'error': str(e)}), 400
@@ -110,9 +98,7 @@ def upload_gallery_image():
 
 @gallery_bp.route('/photos/<photo_id>', methods=['DELETE'])
 def delete_photo(photo_id):
-    """
-    Elimina una foto
-    """
+
     try:
         return jsonify({'message': 'Foto eliminada'}), 200
     except Exception as e:
@@ -121,9 +107,7 @@ def delete_photo(photo_id):
 
 @gallery_bp.route('/photos/<photo_id>/like', methods=['POST'])
 def like_photo(photo_id):
-    """
-    Da like a una foto
-    """
+
     try:
         return jsonify({'message': 'Like registrado'}), 200
     except Exception as e:
@@ -132,14 +116,12 @@ def like_photo(photo_id):
 
 @gallery_bp.route('/event/<event_id>', methods=['GET'])
 def get_event_photos(event_id):
-    """
-    Lista fotos de un evento
-    """
 
     if not event_id:
         return jsonify({'error': 'eventId requerido'}), 400
 
     try:
+
         query = (
             firebase_service.db
             .collection('gallery')
@@ -151,6 +133,7 @@ def get_event_photos(event_id):
         items = []
 
         for doc in query.stream():
+
             data = doc.to_dict() or {}
             created_at = data.get('createdAt')
 
@@ -172,18 +155,11 @@ def get_event_photos(event_id):
 
 
 # ------------------------------
-# NUEVO ENDPOINT PARA FALLBACK
+# ENDPOINT PARA FALLBACK LIKES
 # ------------------------------
 
 @gallery_bp.route('/event/<event_id>/photo/likes', methods=['GET'])
 def get_photo_likes(event_id):
-    """
-    Fallback para obtener likes cuando Firestore Web falla.
-
-    Query params:
-    - likesKey
-    - userId
-    """
 
     likes_key = request.args.get('likesKey')
     user_id = request.args.get('userId')
@@ -195,14 +171,13 @@ def get_photo_likes(event_id):
 
         likes_ref = (
             firebase_service.db
-            .collection('events')
-            .document(event_id)
-            .collection('photos')
+            .collection('gallery')
             .document(likes_key)
             .collection('likes')
         )
 
         count = sum(1 for _ in likes_ref.stream())
+
         user_liked = likes_ref.document(user_id).get().exists
 
         return jsonify({
