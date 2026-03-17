@@ -20,19 +20,18 @@ jobs:
           flutter-version: '3.29.0'
           cache: true
 
+      - name: Configure Flutter for CI
+        run: |
+          flutter config --no-analytics
+          flutter config --no-cli-animations
+
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
-      - name: Generate Firebase options
-        working-directory: app
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-        run: |
-          flutter pub get
-          dart run flutterfire_cli:flutterfire configure --yes
-
       - name: Install dependencies
         working-directory: app
+        env:
+          CI: true
         run: flutter pub get
 
       - name: Build web
