@@ -165,15 +165,66 @@ class _EntryScreenState extends State<EntryScreen> {
       return;
     }
 
-    // Activar directamente modo soltero cuando responde que sí.
+    // Segunda pantalla: decidir si quiere aparecer en la lista de solteros.
+    await _showSingleListDialog(context, userContext);
+  }
+
+  Future<void> _showSingleListDialog(
+    BuildContext context,
+    UserContextProvider userContext,
+  ) async {
+    final eventId = userContext.eventId ?? '';
     final userId = userContext.userId ?? '';
     final name = (userContext.userName ?? '').trim();
-    if (userId.isEmpty || name.isEmpty) return;
+    if (eventId.trim().isEmpty || userId.isEmpty || name.isEmpty) return;
+
+    final joinList = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return PopScope(
+          canPop: false,
+          child: AlertDialog(
+            title: const Text('¿Aparecer en la lista de solteros?'),
+            content: const Text(
+              'La lista de solteros es para interactuar y chatear con otras personas solteras del evento.',
+            ),
+            actions: [
+              Row(
+                children: [
+                  Expanded(
+                    child: CustomButton(
+                      label: 'Sí',
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.x1_5),
+                  Expanded(
+                    child: CustomButton(
+                      label: 'No',
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!context.mounted) return;
+    if (joinList != true) {
+      // No quiere aparecer ni que se le vuelva a preguntar.
+      await userContext.declineSingleForEvent(eventId);
+      return;
+    }
+
     try {
       await _solterosService.activateSingle(eventId: eventId, userId: userId, name: name);
       await userContext.activateSingleForEvent(eventId);
     } catch (_) {
-      // Para demo mantenemos el error silencioso; la UX principal es la respuesta Sí/No.
+      // Silencioso para demo.
     }
   }
 
