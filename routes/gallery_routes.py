@@ -325,3 +325,26 @@ def get_photo_comments(photo_id):
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@gallery_bp.route('/photos/<photo_id>/comments/count', methods=['GET'])
+def get_photo_comments_count(photo_id):
+    """
+    Devuelve el número de comentarios de una foto sin traerlos.
+
+    Respuesta:
+    { "count": <int> }
+    """
+    try:
+        comments_ref = (
+            firebase_service.db
+            .collection('gallery')
+            .document(photo_id)
+            .collection('comments')
+        )
+
+        count = sum(1 for _ in comments_ref.stream())
+        return jsonify({'count': count}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
