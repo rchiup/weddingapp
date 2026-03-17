@@ -15,6 +15,7 @@ from routes.event_routes import event_bp
 from routes.match_routes import match_bp
 from routes.chat_routes import chat_bp
 from routes.gallery_routes import gallery_bp
+from routes.solteros_routes import solteros_bp
 
 
 def create_app():
@@ -38,11 +39,16 @@ def create_app():
     app.register_blueprint(match_bp, url_prefix='/api/matches')
     app.register_blueprint(chat_bp, url_prefix='/api/chat')
     app.register_blueprint(gallery_bp, url_prefix='/api/gallery')
+    app.register_blueprint(solteros_bp, url_prefix='/api/solteros')
 
     return app
 
 
 app = create_app()
+
+@app.route("/health")
+def health():
+    return "ok", 200
 
 
 if __name__ == "__main__":
