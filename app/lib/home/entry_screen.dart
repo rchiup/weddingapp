@@ -71,6 +71,8 @@ class _EntryScreenState extends State<EntryScreen> {
   Widget build(BuildContext context) {
     final userContext = context.watch<UserContextProvider>();
     final hasEvent = userContext.eventId != null && userContext.eventId!.isNotEmpty;
+    final eventId = userContext.eventId ?? '';
+    final disableTablesForEvent = eventId.toUpperCase() == 'CAROYNONI';
     _maybeAskName(context, userContext);
 
     return Scaffold(
@@ -120,8 +122,8 @@ class _EntryScreenState extends State<EntryScreen> {
               ),
               const SizedBox(height: 16),
               _EntryCard(
-                title: '🎉 Ya llegué',
-                subtitle: 'Hacer check-in al evento',
+                title: '🎉 Ver quién llegó',
+                subtitle: 'Entra para ver las llegadas (requiere check-in)',
                 icon: Icons.celebration_outlined,
                 onTap: () => context.go('/checkin'),
                 enabled: true,
@@ -129,10 +131,12 @@ class _EntryScreenState extends State<EntryScreen> {
               const SizedBox(height: 16),
               _EntryCard(
                 title: '👥 Invitados',
-                subtitle: 'Buscar mesa e invitados',
+                subtitle: disableTablesForEvent
+                    ? 'No aplica para este evento'
+                    : 'Buscar mesa e invitados',
                 icon: Icons.people_outline,
                 onTap: () => context.go('/mesas'),
-                enabled: true,
+                enabled: !disableTablesForEvent,
               ),
               const SizedBox(height: 16),
               _EntryCard(

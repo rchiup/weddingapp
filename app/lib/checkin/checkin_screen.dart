@@ -198,7 +198,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.celebration),
-              label: Text(_loading ? 'Registrando...' : '🎉 Ya llegué'),
+              label: Text(_loading ? 'Registrando...' : 'Ya llegué'),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
