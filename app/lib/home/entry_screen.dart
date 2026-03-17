@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../solteros/solteros_service.dart';
+import '../ui/app_theme.dart';
+import '../ui/custom_button.dart';
+import '../ui/custom_card.dart';
 import '../user_context/user_context_provider.dart';
 
 /// Pantalla de entrada neutral
@@ -17,6 +21,8 @@ class EntryScreen extends StatefulWidget {
 
 class _EntryScreenState extends State<EntryScreen> {
   bool _nameDialogShown = false;
+  bool _singleDialogShown = false;
+  final SolterosService _solterosService = SolterosService();
 
   void _maybeAskName(BuildContext context, UserContextProvider userContext) {
     final hasEvent = userContext.eventId != null && userContext.eventId!.isNotEmpty;
@@ -26,6 +32,19 @@ class _EntryScreenState extends State<EntryScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!context.mounted) return;
       _showNameDialog(context, userContext);
+    });
+  }
+
+  void _maybeAskSingle(BuildContext context, UserContextProvider userContext) {
+    final hasEvent = userContext.eventId != null && userContext.eventId!.isNotEmpty;
+    final hasName = userContext.userName != null && userContext.userName!.trim().isNotEmpty;
+    if (!hasEvent || !hasName) return;
+    if (userContext.isSingleForCurrentEvent || userContext.declinedSingleForCurrentEvent) return;
+    if (_singleDialogShown) return;
+    _singleDialogShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      _showSingleQuestionDialog(context, userContext);
     });
   }
 
@@ -45,6 +64,7 @@ class _EntryScreenState extends State<EntryScreen> {
             }
             await userContext.setUserName(name);
             if (ctx.mounted) Navigator.of(ctx).pop();
+            if (context.mounted) _maybeAskSingle(context, userContext);
           }
 
           return PopScope(
@@ -67,10 +87,136 @@ class _EntryScreenState extends State<EntryScreen> {
                 },
               ),
               actions: [
-                FilledButton(
-                  onPressed: submit,
-                  child: const Text('Guardar'),
-                ),
+                SizedBox(
+                  width: double.infinity,
+                  child: CustomButton(label: 'Guardar', onPressed: submit),
+                )
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _showSingleQuestionDialog(
+    BuildContext context,
+    UserContextProvider userContext,
+  ) async {
+    final eventId = userContext.eventId ?? '';
+    if (eventId.trim().isEmpty) return;
+
+    final isSingle = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return PopScope(
+          canPop: false,
+          child: AlertDialog(
+            title: const Text('¿Estás soltero/a?'),
+            content: const Text('Responde para habilitar funciones del módulo de solteros.'),
+            actions: [
+              Row(
+                children: [
+                  Expanded(
+                    child: CustomButton(
+                      label: 'No',
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.x1_5),
+                  Expanded(
+                    child: CustomButton(
+                      label: 'Sí',
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!context.mounted) return;
+    if (isSingle != true) {
+      await userContext.declineSingleForEvent(eventId);
+      return;
+    }
+
+    await _showSingleConfirmDialog(context, userContext);
+  }
+
+  Future<void> _showSingleConfirmDialog(
+    BuildContext context,
+    UserContextProvider userContext,
+  ) async {
+    final eventId = userContext.eventId ?? '';
+    final userId = userContext.userId ?? '';
+    final name = (userContext.userName ?? '').trim();
+    if (eventId.trim().isEmpty || userId.trim().isEmpty || name.isEmpty) return;
+
+    bool accepted = false;
+    bool loading = false;
+    String? error;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) {
+          Future<void> activate() async {
+            if (!accepted || loading) return;
+            setState(() {
+              loading = true;
+              error = null;
+            });
+            try {
+              await _solterosService.activateSingle(eventId: eventId, userId: userId, name: name);
+              await userContext.activateSingleForEvent(eventId);
+              if (ctx.mounted) Navigator.of(ctx).pop();
+            } catch (e) {
+              setState(() => error = '$e');
+            } finally {
+              if (ctx.mounted) setState(() => loading = false);
+            }
+          }
+
+          return PopScope(
+            canPop: false,
+            child: AlertDialog(
+              title: const Text('Modo soltero (irreversible)'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Si lo activas, aparecerás en la lista de solteros del evento y no podrás desactivarlo después.',
+                  ),
+                  const SizedBox(height: 12),
+                  CheckboxListTile(
+                    value: accepted,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Entiendo y quiero activar modo soltero'),
+                    onChanged: loading ? null : (v) => setState(() => accepted = v ?? false),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(error!, style: const TextStyle(color: Colors.red)),
+                  ],
+                ],
+              ),
+              actions: [
+                SizedBox(
+                  width: double.infinity,
+                  child: CustomButton(
+                    label: loading ? 'Activando...' : 'Activar',
+                    onPressed: (!accepted || loading) ? null : activate,
+                    loading: loading,
+                    icon: Icons.favorite,
+                  ),
+                )
               ],
             ),
           );
@@ -86,36 +232,41 @@ class _EntryScreenState extends State<EntryScreen> {
     final eventId = userContext.eventId ?? '';
     final disableTablesForEvent = eventId.toUpperCase() == 'CAROYNONI';
     _maybeAskName(context, userContext);
+    _maybeAskSingle(context, userContext);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bienvenido al evento'),
+        title: const Text('Bienvenido'),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(AppSpacing.x2),
         child: ListView(
           children: [
             if (hasEvent) ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.pink.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
+              CustomCard(
+                padding: const EdgeInsets.all(AppSpacing.x2),
                 child: Row(
                   children: [
-                    const Icon(Icons.event_available, color: Colors.pink),
-                    const SizedBox(width: 8),
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(Icons.event_available, color: AppColors.primary),
+                    ),
+                    const SizedBox(width: AppSpacing.x1_5),
                     Expanded(
                       child: Text(
                         userContext.eventName ?? 'Evento activo',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(height: AppSpacing.x2),
             ],
             _EntryCard(
               title: 'Unirme a un evento',
@@ -124,7 +275,7 @@ class _EntryScreenState extends State<EntryScreen> {
               onTap: () => context.go('/event_join'),
             ),
             if (hasEvent) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.x2),
               _EntryCard(
                 title: '📸 Fotos del evento',
                 subtitle: 'Ver y subir fotos del evento',
@@ -132,7 +283,7 @@ class _EntryScreenState extends State<EntryScreen> {
                 onTap: () => context.go('/fotos'),
                 enabled: true,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.x2),
               _EntryCard(
                 title: '🎉 Ver quién llegó',
                 subtitle: 'Entra para ver quién ya llegó',
@@ -140,7 +291,17 @@ class _EntryScreenState extends State<EntryScreen> {
                 onTap: () => context.go('/checkin'),
                 enabled: true,
               ),
-              const SizedBox(height: 16),
+              if (userContext.isSingleForCurrentEvent) ...[
+                const SizedBox(height: AppSpacing.x2),
+                _EntryCard(
+                  title: '💘 Solteros',
+                  subtitle: 'Chat y lista de solteros del evento',
+                  icon: Icons.favorite_border,
+                  onTap: () => context.go('/solteros'),
+                  enabled: true,
+                ),
+              ],
+              const SizedBox(height: AppSpacing.x2),
               _EntryCard(
                 title: '👥 Invitados',
                 subtitle: disableTablesForEvent
@@ -150,7 +311,7 @@ class _EntryScreenState extends State<EntryScreen> {
                 onTap: () => context.go('/mesas'),
                 enabled: !disableTablesForEvent,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.x2),
               _EntryCard(
                 title: '🎁 Lista de novios',
                 subtitle: 'Ver lista de regalos',
@@ -159,7 +320,7 @@ class _EntryScreenState extends State<EntryScreen> {
                 enabled: true,
               ),
               if (userContext.isAdmin) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.x2),
                 _EntryCard(
                   title: '👰🤵 Panel de novios',
                   subtitle: 'Editar link de la lista',
@@ -193,46 +354,39 @@ class _EntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return CustomCard(
       onTap: enabled ? onTap : null,
-      borderRadius: BorderRadius.circular(12),
-      child: Ink(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: enabled ? Colors.grey.shade300 : Colors.grey.shade200),
-          color: enabled ? null : Colors.grey.shade100,
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: enabled ? Colors.pink.shade50 : Colors.grey.shade300,
-              child: Icon(icon, color: enabled ? Colors.pink.shade400 : Colors.grey),
+      padding: const EdgeInsets.all(AppSpacing.x2),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: enabled ? AppColors.primary.withOpacity(0.10) : Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(16),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: enabled ? null : Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(color: enabled ? Colors.grey.shade700 : Colors.grey),
-                  ),
-                ],
-              ),
+            child: Icon(icon, color: enabled ? AppColors.primary : Colors.grey),
+          ),
+          const SizedBox(width: AppSpacing.x1_5),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTextStyles.title.copyWith(fontSize: 16),
+                ),
+                const SizedBox(height: AppSpacing.x1),
+                Text(
+                  subtitle,
+                  style: AppTextStyles.subtitle,
+                ),
+              ],
             ),
-            Icon(Icons.chevron_right, color: enabled ? null : Colors.grey),
-          ],
-        ),
+          ),
+          Icon(Icons.chevron_right, color: enabled ? AppColors.textPrimary.withOpacity(0.35) : Colors.grey),
+        ],
       ),
     );
   }

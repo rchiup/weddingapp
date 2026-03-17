@@ -6,6 +6,9 @@ import 'package:provider/provider.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../user_context/user_context_provider.dart';
+import '../ui/app_theme.dart';
+import '../ui/custom_button.dart';
+import '../ui/custom_card.dart';
 import 'checkin_service.dart';
 
 /// Pantalla "Ya llegué" - check-in al evento
@@ -104,38 +107,51 @@ class _CheckinScreenState extends State<CheckinScreen> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(AppSpacing.x2),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_done) ...[
-            const Icon(Icons.check_circle, color: Colors.green, size: 64),
-            const SizedBox(height: 16),
-            const Text(
-              '¡Listo! Ya registraste tu llegada.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            CustomCard(
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(Icons.check_circle, color: Colors.green),
+                  ),
+                  const SizedBox(width: AppSpacing.x1_5),
+                  Expanded(
+                    child: Text(
+                      '¡Listo! Ya registraste tu llegada.',
+                      style: AppTextStyles.title.copyWith(fontSize: 16),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.x2),
             TextField(
               decoration: const InputDecoration(
                 prefixIcon: Icon(Icons.search),
                 hintText: 'Buscar quién llegó...',
-                border: OutlineInputBorder(),
-                isDense: true,
               ),
               onChanged: (v) {
                 _query = v;
                 _loadArrivals();
               },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.x1_5),
             Row(
               children: [
                 Text(
                   'Llegaron: ${_arrivals.length}',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: AppTextStyles.title.copyWith(fontSize: 14),
                 ),
                 const Spacer(),
                 IconButton(
@@ -151,17 +167,12 @@ class _CheckinScreenState extends State<CheckinScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.x1),
             Expanded(
               child: _loadingArrivals
                   ? const Center(child: CircularProgressIndicator())
                   : _arrivals.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'Aún no hay llegadas registradas.',
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        )
+                      ? Center(child: Text('Aún no hay llegadas registradas.', style: AppTextStyles.subtitle))
                       : ListView.separated(
                           itemCount: _arrivals.length,
                           separatorBuilder: (_, __) => const Divider(height: 1),
@@ -169,45 +180,66 @@ class _CheckinScreenState extends State<CheckinScreen> {
                             final a = _arrivals[i];
                             final name = (a['name'] ?? 'Invitado').toString();
                             final time = _formatArrivalTime(a['arrivalAt']);
-                            return ListTile(
-                              dense: true,
-                              leading: const Icon(Icons.verified, color: Colors.green),
-                              title: Text(name),
-                              subtitle: time.isEmpty ? null : Text('Llegó a las $time'),
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: AppSpacing.x1),
+                              child: CustomCard(
+                                padding: const EdgeInsets.all(AppSpacing.x1_5),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.withOpacity(0.10),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: const Icon(Icons.verified, color: Colors.green),
+                                    ),
+                                    const SizedBox(width: AppSpacing.x1_5),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(name, style: AppTextStyles.title.copyWith(fontSize: 14)),
+                                          if (time.isNotEmpty) ...[
+                                            const SizedBox(height: 2),
+                                            Text('Llegó a las $time', style: AppTextStyles.subtitle),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             );
                           },
                         ),
             ),
           ] else ...[
-            const Text(
-              '¿Ya llegaste al evento?',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Marca tu llegada para ver quién más ya llegó.',
-              style: TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _loading ? null : _doCheckin,
-              icon: _loading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.celebration),
-              label: Text(_loading ? 'Registrando...' : 'Ya llegué'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+            CustomCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('¿Ya llegaste al evento?', style: AppTextStyles.title),
+                  const SizedBox(height: AppSpacing.x1),
+                  Text('Marca tu llegada para ver quién más ya llegó.', style: AppTextStyles.subtitle),
+                  const SizedBox(height: AppSpacing.x2),
+                  CustomButton(
+                    label: _loading ? 'Registrando...' : 'Ya llegué',
+                    icon: Icons.celebration_outlined,
+                    loading: _loading,
+                    onPressed: _loading ? null : _doCheckin,
+                  ),
+                ],
               ),
             ),
           ],
-          const SizedBox(height: 24),
-          TextButton(
-            onPressed: () => context.go('/entry'),
-            child: const Text('Volver al menú'),
+          const SizedBox(height: AppSpacing.x2),
+          Center(
+            child: TextButton(
+              onPressed: () => context.go('/entry'),
+              child: const Text('Volver al menú'),
+            ),
           ),
         ],
       ),

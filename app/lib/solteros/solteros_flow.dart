@@ -2,26 +2,35 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'solteros_screen.dart';
+import 'solteros_chat_screen.dart';
 
 /// Entry point del flujo de solteros
 ///
 /// Maneja navegación interna del flujo (listado y chat),
 /// sin depender de módulos de fotos.
 class SolterosFlow extends StatefulWidget {
-  const SolterosFlow({super.key});
+  final int initialIndex;
+
+  const SolterosFlow({super.key, this.initialIndex = 0});
 
   @override
   State<SolterosFlow> createState() => _SolterosFlowState();
 }
 
 class _SolterosFlowState extends State<SolterosFlow> {
-  int _currentIndex = 0;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex.clamp(0, 1);
+  }
 
   @override
   Widget build(BuildContext context) {
     final screens = [
       const SolterosScreen(),
-      const _SolterosChatMockScreen(),
+      const SolterosChatScreen(),
     ];
 
     return Scaffold(
@@ -48,38 +57,6 @@ class _SolterosFlowState extends State<SolterosFlow> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _SolterosChatMockScreen extends StatelessWidget {
-  const _SolterosChatMockScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    final mockMessages = [
-      'Hola! ¿Cómo estás?',
-      '¿En qué mesa estás?',
-      '¡Nos vemos en la pista!',
-    ];
-
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: mockMessages.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        return Align(
-          alignment: index.isEven ? Alignment.centerRight : Alignment.centerLeft,
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: index.isEven ? Colors.pink.shade100 : Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(mockMessages[index]),
-          ),
-        );
-      },
     );
   }
 }

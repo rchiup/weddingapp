@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../user_context/user_context_provider.dart';
+import '../ui/app_theme.dart';
 import 'fotos_image_tile.dart';
 import 'fotos_provider.dart';
 
@@ -55,20 +56,28 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
     }
 
     if (provider.photos.isEmpty) {
-      return const Center(child: Text('Aún no hay fotos'));
+      return Padding(
+        padding: const EdgeInsets.all(AppSpacing.x2),
+        child: Center(
+          child: Text(
+            'Aún no hay fotos',
+            style: AppTextStyles.subtitle,
+          ),
+        ),
+      );
     }
 
     return RefreshIndicator(
       onRefresh: () =>
           provider.refresh(eventId, viewerId: viewerId, includePrivate: includePrivate),
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(AppSpacing.x2),
         child: GridView.builder(
           controller: _scrollController,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
+            mainAxisSpacing: AppSpacing.x1_5,
+            crossAxisSpacing: AppSpacing.x1_5,
           ),
           itemCount: provider.photos.length + (provider.hasMore ? 1 : 0),
           itemBuilder: (context, index) {

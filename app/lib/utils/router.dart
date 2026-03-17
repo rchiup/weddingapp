@@ -12,6 +12,7 @@ import '../lista_novios/lista_novios_screen.dart';
 import '../lista_novios/novios_admin_screen.dart';
 import '../rsvp/rsvp_flow.dart';
 import '../solteros/solteros_flow.dart';
+import '../solteros/solteros_dm_screen.dart';
 import '../user_context/user_context_provider.dart';
 
 /// Configuración de rutas de la aplicación
@@ -23,7 +24,15 @@ class AppRouter {
     return GoRouter(
       initialLocation: '/entry',
       refreshListenable: userContext,
-      redirect: (context, state) => null,
+      redirect: (context, state) {
+        final loc = state.uri.path;
+        if (loc.startsWith('/solteros')) {
+          if (!userContext.isSingleForCurrentEvent) {
+            return '/entry';
+          }
+        }
+        return null;
+      },
       routes: [
         GoRoute(
           path: '/entry',
@@ -44,7 +53,19 @@ class AppRouter {
         GoRoute(
           path: '/solteros',
           name: 'solteros',
-          builder: (context, state) => const SolterosFlow(),
+          builder: (context, state) => const SolterosFlow(initialIndex: 0),
+        ),
+        GoRoute(
+          path: '/solteros/chat',
+          name: 'solteros_chat',
+          builder: (context, state) => const SolterosFlow(initialIndex: 1),
+        ),
+        GoRoute(
+          path: '/solteros/dm/:otherUserId',
+          name: 'solteros_dm',
+          builder: (context, state) => SolterosDmScreen(
+            otherUserId: state.pathParameters['otherUserId'] ?? '',
+          ),
         ),
         GoRoute(
           path: '/fotos',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../user_context/user_context_provider.dart';
+import '../ui/app_theme.dart';
 import 'foto_model.dart';
 import 'fotos_fullscreen_screen.dart';
 import 'fotos_provider.dart';
@@ -74,44 +75,52 @@ class _FotosImageTileState extends State<FotosImageTile> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: AspectRatio(
-              aspectRatio: 1,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.network(
-                    widget.photo.url,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Center(
-                      child: Icon(Icons.broken_image_outlined),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: AppRadii.card,
+              boxShadow: AppShadows.soft,
+              border: Border.all(color: AppColors.border),
+            ),
+            child: ClipRRect(
+              borderRadius: AppRadii.card,
+              child: AspectRatio(
+                aspectRatio: 1,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.network(
+                      widget.photo.url,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Center(
+                        child: Icon(Icons.broken_image_outlined),
+                      ),
+                      loadingBuilder: (context, child, progress) {
+                        if (progress == null) return child;
+                        return const Center(child: CircularProgressIndicator());
+                      },
                     ),
-                    loadingBuilder: (context, child, progress) {
-                      if (progress == null) return child;
-                      return const Center(child: CircularProgressIndicator());
-                    },
-                  ),
-                  if (widget.photo.visibility.toLowerCase() == 'novios')
-                    const Positioned(
-                      top: 6,
-                      right: 6,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Colors.black45,
-                          borderRadius: BorderRadius.all(Radius.circular(12)),
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.all(6),
-                          child: Icon(Icons.lock, size: 14, color: Colors.white),
+                    if (widget.photo.visibility.toLowerCase() == 'novios')
+                      Positioned(
+                        top: 10,
+                        right: 10,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.35),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(Icons.lock, size: 14, color: Colors.white),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.x1),
           Text(
             'Subido por: $uploadedByName',
             style: TextStyle(
@@ -123,28 +132,27 @@ class _FotosImageTileState extends State<FotosImageTile> {
           ),
           Row(
             children: [
-              const Icon(Icons.favorite_border, size: 14, color: Colors.grey),
-              const SizedBox(width: 2),
+              Icon(Icons.favorite_border, size: 14, color: AppColors.textPrimary.withOpacity(0.45)),
+              const SizedBox(width: 4),
               FutureBuilder<({int count, bool userLiked})?>(
                 future: _likesFuture,
                 builder: (_, snap) {
                   final text = snap.connectionState == ConnectionState.waiting
                       ? '—'
                       : '${snap.data?.count ?? 0}';
-                  return Text(text, style: const TextStyle(fontSize: 12));
+                  return Text(text, style: AppTextStyles.subtitle.copyWith(fontSize: 12));
                 },
               ),
-              const SizedBox(width: 8),
-              const Icon(Icons.chat_bubble_outline,
-                  size: 14, color: Colors.grey),
-              const SizedBox(width: 2),
+              const SizedBox(width: AppSpacing.x1_5),
+              Icon(Icons.chat_bubble_outline, size: 14, color: AppColors.textPrimary.withOpacity(0.45)),
+              const SizedBox(width: 4),
               FutureBuilder<int>(
                 future: _commentsCountFuture,
                 builder: (_, snap) {
                   final text = snap.connectionState == ConnectionState.waiting
                       ? '—'
                       : '${snap.data ?? 0}';
-                  return Text(text, style: const TextStyle(fontSize: 12));
+                  return Text(text, style: AppTextStyles.subtitle.copyWith(fontSize: 12));
                 },
               ),
             ],

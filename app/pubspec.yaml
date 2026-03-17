@@ -19,6 +19,7 @@ dependencies:
   dio: ^5.4.0
   
   # UI y utilidades
+  google_fonts: ^6.3.0
   cached_network_image: ^3.3.1
   image_picker: ^1.0.7
   intl: ^0.18.1

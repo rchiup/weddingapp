@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:timezone/data/latest.dart' as tz;
 
 import 'firebase_options.dart';
+import 'ui/app_theme.dart';
 import 'user_context/user_context_provider.dart';
 import 'utils/qa_config.dart';
 import 'utils/router.dart';
@@ -55,10 +56,7 @@ class WeddingApp extends StatelessWidget {
       child: MaterialApp.router(
         title: 'Wedding App',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          primarySwatch: Colors.pink,
-          useMaterial3: true,
-        ),
+        theme: AppTheme.light(),
         routerConfig: AppRouter.createRouter(userContext),
       ),
     );

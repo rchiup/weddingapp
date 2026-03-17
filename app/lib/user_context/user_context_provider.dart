@@ -18,6 +18,10 @@ class UserContextProvider extends ChangeNotifier {
   static const _prefsUserIdKey = 'user_id';
   static const _prefsIsAdminKey = 'is_admin';
   static const _prefsUserNameKey = 'user_name';
+  static const _prefsIsSingleKey = 'is_single';
+  static const _prefsSingleEventIdKey = 'single_event_id';
+  static const _prefsSingleActivatedAtKey = 'single_activated_at';
+  static const _prefsSingleDeclinedEventIdKey = 'single_declined_event_id';
 
   bool _isInitialized = false;
   String? _userId;
@@ -28,6 +32,10 @@ class UserContextProvider extends ChangeNotifier {
   bool _eventActive = false;
   UserEventSettings _settings = UserEventSettings.defaults();
   bool _isAdmin = false;
+  bool _isSingle = false;
+  String? _singleEventId;
+  DateTime? _singleActivatedAt;
+  String? _singleDeclinedEventId;
 
   bool get isInitialized => _isInitialized;
   String? get userId => _userId;
@@ -38,6 +46,14 @@ class UserContextProvider extends ChangeNotifier {
   bool get eventActive => _eventActive;
   UserEventSettings get settings => _settings;
   bool get isAdmin => _isAdmin;
+  bool get isSingle => _isSingle;
+  String? get singleEventId => _singleEventId;
+  DateTime? get singleActivatedAt => _singleActivatedAt;
+  String? get singleDeclinedEventId => _singleDeclinedEventId;
+  bool get isSingleForCurrentEvent =>
+      _isSingle && _singleEventId != null && _singleEventId == _eventId;
+  bool get declinedSingleForCurrentEvent =>
+      _singleDeclinedEventId != null && _singleDeclinedEventId == _eventId;
 
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
@@ -60,6 +76,11 @@ class UserContextProvider extends ChangeNotifier {
     }
 
     _isAdmin = prefs.getBool(_prefsIsAdminKey) ?? false;
+    _isSingle = prefs.getBool(_prefsIsSingleKey) ?? false;
+    _singleEventId = prefs.getString(_prefsSingleEventIdKey);
+    final rawSingleAt = prefs.getString(_prefsSingleActivatedAtKey);
+    _singleActivatedAt = rawSingleAt != null ? DateTime.tryParse(rawSingleAt) : null;
+    _singleDeclinedEventId = prefs.getString(_prefsSingleDeclinedEventIdKey);
     _isInitialized = true;
     notifyListeners();
   }
@@ -122,6 +143,34 @@ class UserContextProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _isAdmin = value;
     await prefs.setBool(_prefsIsAdminKey, value);
+    notifyListeners();
+  }
+
+  Future<void> activateSingleForEvent(String eventId) async {
+    final normalized = eventId.trim();
+    if (normalized.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+
+    // Irreversible: solo permite pasar a true. (Se puede activar nuevamente si cambias de evento.)
+    _isSingle = true;
+    _singleEventId = normalized;
+    _singleActivatedAt ??= DateTime.now().toUtc();
+
+    await prefs.setBool(_prefsIsSingleKey, true);
+    await prefs.setString(_prefsSingleEventIdKey, normalized);
+    await prefs.setString(_prefsSingleActivatedAtKey, _singleActivatedAt!.toIso8601String());
+    // Si lo activó, ya no se considera declinado.
+    _singleDeclinedEventId = null;
+    await prefs.remove(_prefsSingleDeclinedEventIdKey);
+    notifyListeners();
+  }
+
+  Future<void> declineSingleForEvent(String eventId) async {
+    final normalized = eventId.trim();
+    if (normalized.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    _singleDeclinedEventId = normalized;
+    await prefs.setString(_prefsSingleDeclinedEventIdKey, normalized);
     notifyListeners();
   }
 }

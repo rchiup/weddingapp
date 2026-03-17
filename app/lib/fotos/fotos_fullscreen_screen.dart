@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../user_context/user_context_provider.dart';
+import '../ui/app_theme.dart';
+import '../ui/custom_button.dart';
+import '../ui/custom_card.dart';
 import 'foto_model.dart';
 import 'fotos_repository.dart';
 import 'fotos_social_service.dart';
@@ -169,13 +172,23 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                     title: const Text('Eliminar foto'),
                     content: const Text('¿Seguro que quieres borrar esta foto?'),
                     actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(ctx).pop(false),
-                        child: const Text('Cancelar'),
-                      ),
-                      FilledButton(
-                        onPressed: () => Navigator.of(ctx).pop(true),
-                        child: const Text('Eliminar'),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CustomButton(
+                              label: 'Cancelar',
+                              onPressed: () => Navigator.of(ctx).pop(false),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.x1_5),
+                          Expanded(
+                            child: CustomButton(
+                              label: 'Eliminar',
+                              icon: Icons.delete_outline,
+                              onPressed: () => Navigator.of(ctx).pop(true),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -213,11 +226,23 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      Image.network(
-                        widget.photo.url,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const Center(
-                          child: Icon(Icons.broken_image_outlined, size: 48),
+                      Container(
+                        margin: const EdgeInsets.all(AppSpacing.x2),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: AppRadii.card,
+                          boxShadow: AppShadows.soft,
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: AppRadii.card,
+                          child: Image.network(
+                            widget.photo.url,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Center(
+                              child: Icon(Icons.broken_image_outlined, size: 48),
+                            ),
+                          ),
                         ),
                       ),
                       IgnorePointer(
@@ -250,45 +275,38 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
             ),
           ),
           Padding(
-              padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.x2, 0, AppSpacing.x2, AppSpacing.x2),
+            child: CustomCard(
+              padding: const EdgeInsets.all(AppSpacing.x2),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'Subido por: $uploadedByName',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade700,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
+                  Text('Subido por: $uploadedByName', style: AppTextStyles.subtitle.copyWith(fontSize: 14)),
+                  const SizedBox(height: AppSpacing.x1_5),
                   Row(
                     children: [
                       IconButton(
-                        onPressed: () async {
-                          await _toggleLike(userId: userId, userName: userName);
-                        },
+                        onPressed: () async => _toggleLike(userId: userId, userName: userName),
                         icon: Icon(
-                          (_initialIsLiked ?? false)
-                              ? Icons.favorite
-                              : Icons.favorite_border,
-                          color: (_initialIsLiked ?? false) ? Colors.red : null,
+                          (_initialIsLiked ?? false) ? Icons.favorite : Icons.favorite_border,
+                          color: (_initialIsLiked ?? false) ? Colors.red : AppColors.textPrimary.withOpacity(0.7),
                         ),
-                        tooltip: (_initialIsLiked ?? false)
-                            ? 'Quitar like'
-                            : 'Me gusta',
+                        tooltip: (_initialIsLiked ?? false) ? 'Quitar like' : 'Me gusta',
                       ),
-                      Text(_initialLikeCount == null ? '—' : '$_initialLikeCount'),
-                      const Text(' likes'),
+                      Text(
+                        _initialLikeCount == null ? '—' : '$_initialLikeCount',
+                        style: AppTextStyles.title.copyWith(fontSize: 16),
+                      ),
+                      const SizedBox(width: AppSpacing.x1),
+                      Text('likes', style: AppTextStyles.subtitle),
                     ],
                   ),
-                  const Divider(),
-                  const Text(
-                    '💬 Comentarios',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
+                  const SizedBox(height: AppSpacing.x1),
+                  Divider(color: AppColors.border.withOpacity(0.8)),
+                  const SizedBox(height: AppSpacing.x1),
+                  Text('Comentarios', style: AppTextStyles.title.copyWith(fontSize: 14)),
+                  const SizedBox(height: AppSpacing.x1),
                   Row(
                     children: [
                       Expanded(
@@ -296,43 +314,31 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                           controller: _commentController,
                           decoration: const InputDecoration(
                             hintText: 'Escribe un comentario...',
-                            border: OutlineInputBorder(),
-                            isDense: true,
                           ),
                           maxLines: 1,
                           textInputAction: TextInputAction.send,
-                          onSubmitted: (_) =>
-                              _submitComment(userId: userId, userName: userName),
+                          onSubmitted: (_) => _submitComment(userId: userId, userName: userName),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSpacing.x1),
                       IconButton(
-                        onPressed: () async {
-                          await _submitComment(
-                            userId: userId,
-                            userName: userName,
-                          );
-                        },
+                        onPressed: () async => _submitComment(userId: userId, userName: userName),
                         icon: const Icon(Icons.send),
+                        color: AppColors.primary,
                       ),
                     ],
                   ),
                 ],
               ),
             ),
+          ),
           Expanded(
             child: _loadingComments
                 ? const Center(child: CircularProgressIndicator())
                 : _comments.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'Sin comentarios',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      )
+                    ? Center(child: Text('Sin comentarios', style: AppTextStyles.subtitle))
                     : ListView.builder(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2),
                         itemCount: _comments.length,
                         itemBuilder: (_, i) {
                           final c = _comments[i];
@@ -347,21 +353,20 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                               ? '${dt.day}/${dt.month} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}'
                               : '';
                           return Padding(
-                            padding:
-                                const EdgeInsets.only(bottom: 8.0),
-                            child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${c['name'] ?? 'Invitado'} · $dateStr',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade600,
+                            padding: const EdgeInsets.only(bottom: AppSpacing.x1_5),
+                            child: CustomCard(
+                              padding: const EdgeInsets.all(AppSpacing.x1_5),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${c['name'] ?? 'Invitado'} · $dateStr',
+                                    style: AppTextStyles.subtitle.copyWith(fontSize: 12),
                                   ),
-                                ),
-                                Text('${c['message'] ?? ''}'),
-                              ],
+                                  const SizedBox(height: AppSpacing.x1),
+                                  Text('${c['message'] ?? ''}'),
+                                ],
+                              ),
                             ),
                           );
                         },
