@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../solteros/solteros_service.dart';
+import '../solteros/solteros_provider.dart';
 import '../ui/app_theme.dart';
 import '../ui/custom_button.dart';
 import '../ui/custom_card.dart';
