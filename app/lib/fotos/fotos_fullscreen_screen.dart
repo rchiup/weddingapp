@@ -87,6 +87,33 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
     });
   }
 
+  Future<void> _toggleLike({
+    required String userId,
+    required String userName,
+  }) async {
+    if (widget.photo.id.isEmpty || userId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo dar like.'),
+          ),
+        );
+      }
+      return;
+    }
+    final result = await _fotosRepository.togglePhotoLike(
+      widget.photo.id,
+      userId,
+      userName,
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _initialLikeCount = result.count;
+        _initialIsLiked = result.liked;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _commentController.dispose();
@@ -111,11 +138,15 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
           Expanded(
             child: Center(
               child: InteractiveViewer(
-                child: Image.network(
-                  widget.photo.url,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Center(
-                    child: Icon(Icons.broken_image_outlined, size: 48),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onDoubleTap: () => _toggleLike(userId: userId, userName: userName),
+                  child: Image.network(
+                    widget.photo.url,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Center(
+                      child: Icon(Icons.broken_image_outlined, size: 48),
+                    ),
                   ),
                 ),
               ),
@@ -140,34 +171,7 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                     children: [
                       IconButton(
                         onPressed: () async {
-                          if (widget.photo.id.isEmpty || userId.isEmpty) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                      'No se pudo dar like. Verifica que estés en un evento.'),
-                                ),
-                              );
-                            }
-                            return;
-                          }
-                          final result = await _fotosRepository.togglePhotoLike(
-                            widget.photo.id,
-                            userId,
-                            userName,
-                          );
-                          if (result != null && mounted) {
-                            setState(() {
-                              _initialLikeCount = result.count;
-                              _initialIsLiked = result.liked;
-                            });
-                          } else if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Error al dar like. Intenta de nuevo.'),
-                              ),
-                            );
-                          }
+                          await _toggleLike(userId: userId, userName: userName);
                         },
                         icon: Icon(
                           (_initialIsLiked ?? false)
