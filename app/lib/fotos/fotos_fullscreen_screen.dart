@@ -60,6 +60,33 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
     }
   }
 
+  Future<void> _submitComment({
+    required String userId,
+    required String userName,
+  }) async {
+    final msg = _commentController.text.trim();
+    if (msg.isEmpty) return;
+    if (userId.isEmpty || widget.photo.id.isEmpty) return;
+
+    await _fotosRepository.addPhotoComment(
+      photoId: widget.photo.id,
+      userId: userId,
+      name: userName,
+      message: msg,
+    );
+    _commentController.clear();
+    if (!mounted) return;
+    setState(() {
+      _comments.add({
+        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'userId': userId,
+        'name': userName,
+        'message': msg,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+    });
+  }
+
   @override
   void dispose() {
     _commentController.dispose();
@@ -172,35 +199,18 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                             isDense: true,
                           ),
                           maxLines: 1,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) =>
+                              _submitComment(userId: userId, userName: userName),
                         ),
                       ),
                       const SizedBox(width: 8),
                       IconButton(
                         onPressed: () async {
-                          final msg = _commentController.text.trim();
-                          if (msg.isEmpty) return;
-                          if (userId.isEmpty || widget.photo.id.isEmpty) return;
-                          await _fotosRepository.addPhotoComment(
-                            photoId: widget.photo.id,
+                          await _submitComment(
                             userId: userId,
-                            name: userName,
-                            message: msg,
+                            userName: userName,
                           );
-                          _commentController.clear();
-                          if (mounted) {
-                            setState(() {
-                              _comments.add({
-                                'id': DateTime.now()
-                                    .millisecondsSinceEpoch
-                                    .toString(),
-                                'userId': userId,
-                                'name': userName,
-                                'message': msg,
-                                'timestamp':
-                                    DateTime.now().toIso8601String(),
-                              });
-                            });
-                          }
                         },
                         icon: const Icon(Icons.send),
                       ),
