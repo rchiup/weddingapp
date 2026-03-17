@@ -77,6 +77,7 @@ class FotosProvider extends ChangeNotifier {
   Future<void> uploadPhotos({
     required String eventId,
     required String userId,
+    required String userName,
     required List<XFile> files,
   }) async {
     if (eventId.isEmpty || userId.isEmpty) {
@@ -91,6 +92,7 @@ class FotosProvider extends ChangeNotifier {
         await _repository.uploadPhoto(
           eventId: eventId,
           userId: userId,
+          userName: userName,
           file: file,
           onProgress: (progress) {
             _uploadProgress = progress;

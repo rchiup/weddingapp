@@ -43,7 +43,9 @@ class _FotosImageTileState extends State<FotosImageTile> {
     final userName = userContext.userName ?? 'Invitado';
     final uploadedByName = widget.photo.uploadedBy == userId
         ? (userName != 'Invitado' ? userName : 'Tú')
-        : 'Invitado';
+        : (widget.photo.uploadedByName.isNotEmpty
+            ? widget.photo.uploadedByName
+            : 'Invitado');
 
     return GestureDetector(
       onTap: () {

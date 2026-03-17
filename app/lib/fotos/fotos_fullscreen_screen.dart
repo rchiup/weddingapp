@@ -150,11 +150,53 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
     final userName = userContext.userName ?? 'Invitado';
     final uploadedByName = widget.photo.uploadedBy == userId
         ? (userName != 'Invitado' ? userName : 'Tú')
-        : 'Invitado';
+        : (widget.photo.uploadedByName.isNotEmpty
+            ? widget.photo.uploadedByName
+            : 'Invitado');
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Foto'),
+        actions: [
+          if (userContext.isAdmin)
+            IconButton(
+              tooltip: 'Eliminar foto',
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () async {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Eliminar foto'),
+                    content: const Text('¿Seguro que quieres borrar esta foto?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        child: const Text('Cancelar'),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                        child: const Text('Eliminar'),
+                      ),
+                    ],
+                  ),
+                );
+                if (ok != true) return;
+                try {
+                  await _fotosRepository.deletePhoto(widget.photo.id);
+                  if (!mounted) return;
+                  Navigator.of(context).pop(true);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Foto eliminada')),
+                  );
+                } catch (e) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('No se pudo eliminar: $e')),
+                  );
+                }
+              },
+            ),
+        ],
       ),
       body: Column(
         children: [

@@ -41,6 +41,7 @@ class FotosUploadScreen extends StatelessWidget {
               await provider.uploadPhotos(
                 eventId: userContext.eventId ?? '',
                 userId: userContext.userId ?? '',
+                userName: userContext.userName ?? 'Invitado',
                 files: files,
               );
               if (!context.mounted) return;

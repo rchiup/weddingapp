@@ -124,9 +124,15 @@ class FotosRepository {
     );
   }
 
+  Future<void> deletePhoto(String photoId) async {
+    if (photoId.isEmpty) return;
+    await _dio.delete('$_backendBaseUrl/api/gallery/photos/$photoId');
+  }
+
   Future<FotoModel> uploadPhoto({
     required String eventId,
     required String userId,
+    required String userName,
     required XFile file,
     void Function(double progress)? onProgress,
   }) async {
@@ -144,6 +150,7 @@ class FotosRepository {
         'file': multipartFile,
         'eventId': eventId,
         'userId': userId,
+        'userName': userName,
       });
 
       final response = await _dio.post(
