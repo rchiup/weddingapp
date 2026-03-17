@@ -18,6 +18,18 @@ gallery_bp = Blueprint('gallery', __name__)
 firebase_service = FirebaseService()
 
 
+def _expected_admin_code(event_id: str) -> str:
+    # Código simple para demo: EVENTID-NOVIOS (case-insensitive)
+    return f"{(event_id or '').strip().upper()}-NOVIOS"
+
+
+def _is_valid_registry_url(url: str) -> bool:
+    if not url:
+        return False
+    u = url.strip().lower()
+    return u.startswith('http://') or u.startswith('https://')
+
+
 @gallery_bp.route('/<event_id>/photos', methods=['GET'])
 def get_photos(event_id):
     try:
@@ -439,5 +451,64 @@ def event_arrivals(event_id):
 
         return jsonify({'items': items}), 200
 
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ------------------------------
+# LISTA DE NOVIOS (events/{eventId}/settings)
+# ------------------------------
+
+@gallery_bp.route('/event/<event_id>/registry', methods=['GET'])
+def get_event_registry(event_id):
+    """
+    Devuelve la URL pública de lista de regalos del evento.
+
+    Lee desde:
+      events/{eventId}/settings (doc) -> registryUrl
+    """
+    if not event_id:
+        return jsonify({'error': 'eventId requerido'}), 400
+
+    try:
+        doc = (
+            firebase_service.db
+            .collection('events')
+            .document(event_id)
+            .collection('settings')
+            .document('public')
+            .get()
+        )
+        data = doc.to_dict() or {}
+        return jsonify({'registryUrl': data.get('registryUrl', '')}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@gallery_bp.route('/event/<event_id>/registry', methods=['POST'])
+def set_event_registry(event_id):
+    """
+    Setea la URL de la lista de regalos (solo novios).
+
+    Body JSON:
+      { "adminCode": "...", "registryUrl": "https://..." }
+    """
+    data = request.get_json(silent=True) or {}
+    admin_code = (data.get('adminCode') or '').strip().upper()
+    registry_url = (data.get('registryUrl') or '').strip()
+
+    if not event_id:
+        return jsonify({'error': 'eventId requerido'}), 400
+    if admin_code != _expected_admin_code(event_id):
+        return jsonify({'error': 'Código de novios inválido'}), 403
+    if not _is_valid_registry_url(registry_url):
+        return jsonify({'error': 'URL inválida'}), 400
+
+    try:
+        firebase_service.db.collection('events').document(event_id).collection('settings').document('public').set({
+            'registryUrl': registry_url,
+            'updatedAt': datetime.now(timezone.utc).isoformat(),
+        }, merge=True)
+        return jsonify({'ok': True}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
