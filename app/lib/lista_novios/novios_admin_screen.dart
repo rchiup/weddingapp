@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../user_context/user_context_provider.dart';
@@ -12,19 +13,29 @@ class NoviosAdminScreen extends StatefulWidget {
 }
 
 class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
-  final _codeController = TextEditingController();
   final _urlController = TextEditingController();
   bool _loading = false;
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final ctx = context.read<UserContextProvider>();
+      if (ctx.isAdmin) {
+        _loadCurrentUrl();
+      }
+    });
+  }
+
+  @override
   void dispose() {
-    _codeController.dispose();
     _urlController.dispose();
     super.dispose();
   }
 
-  String _expectedCode(String eventId) => '${eventId.toUpperCase()}-NOVIOS';
+  String _adminCode(String eventId) => '${eventId.toUpperCase()}-NOVIOS';
 
   Future<void> _loadCurrentUrl() async {
     final ctx = context.read<UserContextProvider>();
@@ -35,23 +46,9 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
     _urlController.text = url ?? '';
   }
 
-  Future<void> _activateAdmin() async {
-    final ctx = context.read<UserContextProvider>();
-    final eventId = ctx.eventId ?? '';
-    final code = _codeController.text.trim().toUpperCase();
-    if (eventId.isEmpty) return;
-    if (code != _expectedCode(eventId)) {
-      setState(() => _error = 'Código inválido. Debe ser ${_expectedCode(eventId)}');
-      return;
-    }
-    await ctx.setIsAdmin(true);
-    await _loadCurrentUrl();
-  }
-
   Future<void> _saveUrl() async {
     final ctx = context.read<UserContextProvider>();
     final eventId = ctx.eventId ?? '';
-    final code = _codeController.text.trim().toUpperCase();
     final url = _urlController.text.trim();
     if (eventId.isEmpty) return;
     setState(() {
@@ -61,7 +58,7 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
     try {
       await NoviosRegistryService().setRegistryUrl(
         eventId: eventId,
-        adminCode: code,
+        adminCode: _adminCode(eventId),
         registryUrl: url,
       );
       if (!mounted) return;
@@ -83,7 +80,14 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
     final isAdmin = ctx.isAdmin;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Panel de novios')),
+      appBar: AppBar(
+        title: const Text('Panel de novios'),
+        leading: IconButton(
+          onPressed: () => context.go('/entry'),
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Volver',
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -93,33 +97,22 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
               const Text('Debes unirte a un evento primero.'),
               const SizedBox(height: 12),
               FilledButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => context.go('/entry'),
                 child: const Text('Volver'),
               ),
             ] else ...[
-              Text(
-                'Evento: $eventId',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _codeController,
-                decoration: InputDecoration(
-                  labelText: 'Código de novios',
-                  hintText: _expectedCode(eventId),
-                  border: const OutlineInputBorder(),
+              if (!isAdmin) ...[
+                const Text(
+                  'Este panel solo está disponible si te unes con el código de novios.',
+                  style: TextStyle(color: Colors.grey),
                 ),
-                textCapitalization: TextCapitalization.characters,
-                onSubmitted: (_) => _activateAdmin(),
-              ),
-              const SizedBox(height: 12),
-              if (!isAdmin)
-                FilledButton(
-                  onPressed: _activateAdmin,
-                  child: const Text('Activar panel'),
+                const SizedBox(height: 8),
+                Text(
+                  'Tip: usa "$eventId-NOVIOS" al unirte al evento.',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-              if (isAdmin) ...[
-                const SizedBox(height: 12),
+              ] else ...[
+                const SizedBox(height: 4),
                 const Text(
                   'Pega el link de la lista de regalos (Falabella/Paris/Ripley o cualquier URL).',
                   style: TextStyle(color: Colors.grey),

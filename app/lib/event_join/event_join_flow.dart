@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'event_join_provider.dart';
@@ -16,7 +17,7 @@ class EventJoinFlow extends StatelessWidget {
         appBar: AppBar(
           title: const Text('Unirme a un evento'),
           leading: IconButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => context.go('/entry'),
             icon: const Icon(Icons.arrow_back),
             tooltip: 'Volver',
           ),

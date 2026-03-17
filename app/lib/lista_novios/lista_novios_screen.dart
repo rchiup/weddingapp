@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../user_context/user_context_provider.dart';
@@ -17,7 +18,7 @@ class ListaNoviosScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Lista de novios'),
         leading: IconButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => context.go('/entry'),
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Volver',
         ),

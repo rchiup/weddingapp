@@ -29,10 +29,14 @@ class EventJoinProvider extends ChangeNotifier {
 
     try {
       final normalized = EventJoinValidator.normalizeCode(code);
-      // Modo libre para pruebas: cualquier código activa el menú.
+      // Modo demo: el código termina en -NOVIOS activa panel de novios.
+      final isNoviosCode = normalized.toUpperCase().endsWith('-NOVIOS');
+      final baseEventId = isNoviosCode
+          ? normalized.substring(0, normalized.length - '-NOVIOS'.length)
+          : normalized;
       final event = EventModel(
-        id: normalized,
-        name: 'Evento de prueba',
+        id: baseEventId,
+        name: 'Evento $baseEventId',
         date: DateTime.now(),
         active: true,
         settings: EventSettingsModel(
@@ -54,7 +58,7 @@ class EventJoinProvider extends ChangeNotifier {
         eventDate: event.date,
         settings: event.settings.toMap(),
         eventActive: event.active,
-        isAdmin: true,
+        isAdmin: isNoviosCode,
       );
       _setLoading(false);
       return true;
