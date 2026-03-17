@@ -348,3 +348,96 @@ def get_photo_comments_count(photo_id):
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# ------------------------------
+# CHECK-IN / LLEGADAS (events/{eventId}/...)
+# ------------------------------
+
+@gallery_bp.route('/event/<event_id>/checkin', methods=['POST'])
+def event_checkin(event_id):
+    """
+    Marca llegada de un usuario al evento.
+
+    Escribe en:
+      - events/{eventId}/checkins/{userId}
+      - events/{eventId}/guests/{userId} (merge status=arrived)
+
+    Body JSON:
+    {
+      "userId": "...",
+      "name": "Nombre"
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    user_id = (data.get('userId') or '').strip()
+    name = (data.get('name') or '').strip() or 'Invitado'
+
+    if not event_id or not user_id:
+        return jsonify({'error': 'eventId y userId son requeridos'}), 400
+
+    try:
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        firebase_service.db.collection('events').document(event_id).collection('checkins').document(user_id).set({
+            'name': name,
+            'timestamp': now_iso,
+        })
+
+        firebase_service.db.collection('events').document(event_id).collection('guests').document(user_id).set({
+            'name': name,
+            'nameLower': name.lower(),
+            'status': 'arrived',
+            'arrivalAt': now_iso,
+            'tableNumber': '',
+        }, merge=True)
+
+        return jsonify({'ok': True, 'arrivalAt': now_iso}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@gallery_bp.route('/event/<event_id>/arrivals', methods=['GET'])
+def event_arrivals(event_id):
+    """
+    Lista quiénes ya llegaron (para demo).
+
+    Query:
+      - q (opcional): filtra por nombre (contiene)
+
+    Respuesta:
+      { "items": [ { "userId", "name", "arrivalAt" }, ... ] }
+    """
+    q = (request.args.get('q') or '').strip().lower()
+
+    if not event_id:
+        return jsonify({'error': 'eventId requerido'}), 400
+
+    try:
+        guests_ref = firebase_service.db.collection('events').document(event_id).collection('guests')
+        # Firestore no soporta contains; para demo filtramos en servidor.
+        stream = guests_ref.where('status', '==', 'arrived').stream()
+
+        items = []
+        for doc in stream:
+            data = doc.to_dict() or {}
+            name = (data.get('name') or '').strip()
+            arrival_at = data.get('arrivalAt') or data.get('timestamp')
+            row = {
+                'userId': doc.id,
+                'name': name or 'Invitado',
+                'arrivalAt': arrival_at,
+            }
+            if q:
+                if q not in (name.lower() if name else ''):
+                    continue
+            items.append(row)
+
+        # Orden: más recientes primero si se puede
+        items.sort(key=lambda x: x.get('arrivalAt') or '', reverse=True)
+
+        return jsonify({'items': items}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
