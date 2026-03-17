@@ -60,6 +60,9 @@ def upload_gallery_image():
         event_id = request.form.get('eventId')
         user_id = request.form.get('userId')
         user_name = (request.form.get('userName') or '').strip() or 'Invitado'
+        visibility = (request.form.get('visibility') or '').strip().lower() or 'public'
+        if visibility not in {'public', 'novios'}:
+            visibility = 'public'
 
         if not event_id or not user_id:
             return jsonify({'error': 'eventId y userId son requeridos'}), 400
@@ -95,6 +98,7 @@ def upload_gallery_image():
             'imageUrl': image_url,
             'userId': user_id,
             'userName': user_name,
+            'visibility': visibility,
             'eventId': event_id,
             'createdAt': datetime.now(timezone.utc).isoformat(),
         }
@@ -187,6 +191,9 @@ def get_event_photos(event_id):
     if not event_id:
         return jsonify({'error': 'eventId requerido'}), 400
 
+    include_private = (request.args.get('includePrivate') or '').strip().lower() in {'1', 'true', 'yes'}
+    viewer_id = (request.args.get('viewerId') or '').strip()
+
     try:
 
         query = (
@@ -202,6 +209,10 @@ def get_event_photos(event_id):
         for doc in query.stream():
 
             data = doc.to_dict() or {}
+            visibility = (data.get('visibility') or 'public').strip().lower()
+            owner_id = (data.get('userId') or '').strip()
+            if visibility == 'novios' and not include_private and (not viewer_id or viewer_id != owner_id):
+                continue
             created_at = data.get('createdAt')
 
             if hasattr(created_at, 'isoformat'):
@@ -213,6 +224,7 @@ def get_event_photos(event_id):
                 'eventId': data.get('eventId', ''),
                 'userId': data.get('userId', ''),
                 'userName': data.get('userName', ''),
+                'visibility': visibility,
                 'createdAt': created_at,
             })
 
