@@ -26,6 +26,7 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
   bool? _initialIsLiked;
   List<Map<String, dynamic>> _comments = [];
   bool _loadingComments = false;
+  bool _showDoubleTapHeart = false;
 
   @override
   void initState() {
@@ -101,17 +102,39 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
       }
       return;
     }
-    final result = await _fotosRepository.togglePhotoLike(
-      widget.photo.id,
-      userId,
-      userName,
-    );
+    // Optimista: actualiza UI al instante, luego sincroniza con API
+    final wasLiked = _initialIsLiked ?? false;
+    final wasCount = _initialLikeCount;
+    setState(() {
+      _initialIsLiked = !wasLiked;
+      _initialLikeCount = (wasCount ?? 0) + (wasLiked ? -1 : 1);
+    });
+
+    final result =
+        await _fotosRepository.togglePhotoLike(widget.photo.id, userId, userName);
     if (result != null && mounted) {
       setState(() {
         _initialLikeCount = result.count;
         _initialIsLiked = result.liked;
       });
+      return;
     }
+
+    // Si falló la API, revertimos
+    if (mounted) {
+      setState(() {
+        _initialIsLiked = wasLiked;
+        _initialLikeCount = wasCount;
+      });
+    }
+  }
+
+  Future<void> _playHeartPop() async {
+    if (!mounted) return;
+    setState(() => _showDoubleTapHeart = true);
+    await Future<void>.delayed(const Duration(milliseconds: 550));
+    if (!mounted) return;
+    setState(() => _showDoubleTapHeart = false);
   }
 
   @override
@@ -140,13 +163,45 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
               child: InteractiveViewer(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onDoubleTap: () => _toggleLike(userId: userId, userName: userName),
-                  child: Image.network(
-                    widget.photo.url,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Center(
-                      child: Icon(Icons.broken_image_outlined, size: 48),
-                    ),
+                  onDoubleTap: () async {
+                    // animación tipo IG + toggle like
+                    await _playHeartPop();
+                    await _toggleLike(userId: userId, userName: userName);
+                  },
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Image.network(
+                        widget.photo.url,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Center(
+                          child: Icon(Icons.broken_image_outlined, size: 48),
+                        ),
+                      ),
+                      IgnorePointer(
+                        child: AnimatedScale(
+                          scale: _showDoubleTapHeart ? 1.0 : 0.6,
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOutBack,
+                          child: AnimatedOpacity(
+                            opacity: _showDoubleTapHeart ? 0.9 : 0.0,
+                            duration: const Duration(milliseconds: 180),
+                            child: const Icon(
+                              Icons.favorite,
+                              color: Colors.white,
+                              size: 120,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 12,
+                                  color: Colors.black38,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -183,7 +238,7 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                             ? 'Quitar like'
                             : 'Me gusta',
                       ),
-                      Text('${_initialLikeCount ?? 0}'),
+                      Text(_initialLikeCount == null ? '—' : '$_initialLikeCount'),
                       const Text(' likes'),
                     ],
                   ),

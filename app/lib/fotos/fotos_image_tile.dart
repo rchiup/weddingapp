@@ -92,10 +92,12 @@ class _FotosImageTileState extends State<FotosImageTile> {
               const SizedBox(width: 2),
               FutureBuilder<({int count, bool userLiked})?>(
                 future: _likesFuture,
-                builder: (_, snap) => Text(
-                  '${snap.data?.count ?? 0}',
-                  style: const TextStyle(fontSize: 12),
-                ),
+                builder: (_, snap) {
+                  final text = snap.connectionState == ConnectionState.waiting
+                      ? '—'
+                      : '${snap.data?.count ?? 0}';
+                  return Text(text, style: const TextStyle(fontSize: 12));
+                },
               ),
               const SizedBox(width: 8),
               const Icon(Icons.chat_bubble_outline,
@@ -103,10 +105,12 @@ class _FotosImageTileState extends State<FotosImageTile> {
               const SizedBox(width: 2),
               FutureBuilder<int>(
                 future: _commentsCountFuture,
-                builder: (_, snap) => Text(
-                  '${snap.data ?? 0}',
-                  style: const TextStyle(fontSize: 12),
-                ),
+                builder: (_, snap) {
+                  final text = snap.connectionState == ConnectionState.waiting
+                      ? '—'
+                      : '${snap.data ?? 0}';
+                  return Text(text, style: const TextStyle(fontSize: 12));
+                },
               ),
             ],
           ),
