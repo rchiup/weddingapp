@@ -31,39 +31,51 @@ class _EntryScreenState extends State<EntryScreen> {
 
   Future<void> _showNameDialog(BuildContext context, UserContextProvider userContext) async {
     final controller = TextEditingController();
+    String? errorText;
     await showDialog<String>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('¿Cómo te llamas?'),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(
-              hintText: 'Tu nombre',
-              border: OutlineInputBorder(),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) {
+          Future<void> submit() async {
+            final name = controller.text.trim();
+            if (name.isEmpty) {
+              setState(() => errorText = 'El nombre es obligatorio');
+              return;
+            }
+            await userContext.setUserName(name);
+            if (ctx.mounted) Navigator.of(ctx).pop();
+          }
+
+          return PopScope(
+            canPop: false,
+            child: AlertDialog(
+              title: const Text('¿Cómo te llamas?'),
+              content: TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  hintText: 'Tu nombre',
+                  border: const OutlineInputBorder(),
+                  errorText: errorText,
+                ),
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => submit(),
+                onChanged: (_) {
+                  if (errorText != null) setState(() => errorText = null);
+                },
+              ),
+              actions: [
+                FilledButton(
+                  onPressed: submit,
+                  child: const Text('Guardar'),
+                ),
+              ],
             ),
-            autofocus: true,
-            textCapitalization: TextCapitalization.words,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Más tarde'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final name = controller.text.trim();
-                if (name.isNotEmpty) {
-                  userContext.setUserName(name);
-                }
-                Navigator.of(ctx).pop();
-              },
-              child: const Text('Guardar'),
-            ),
-          ],
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -123,7 +135,7 @@ class _EntryScreenState extends State<EntryScreen> {
               const SizedBox(height: 16),
               _EntryCard(
                 title: '🎉 Ver quién llegó',
-                subtitle: 'Entra para ver las llegadas (requiere check-in)',
+                subtitle: 'Entra para ver quién ya llegó',
                 icon: Icons.celebration_outlined,
                 onTap: () => context.go('/checkin'),
                 enabled: true,
