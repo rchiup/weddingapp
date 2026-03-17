@@ -49,9 +49,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
 
     setState(() => _loading = true);
     try {
-      await _service
-          .checkIn(eventId: eventId, userId: userId, name: name)
-          .timeout(const Duration(seconds: 12));
+      await _service.checkIn(eventId: eventId, userId: userId, name: name);
       if (mounted) {
         setState(() {
           _loading = false;
@@ -63,7 +61,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
       if (mounted) {
         setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('No se pudo registrar la llegada: $e')),
         );
       }
     }
