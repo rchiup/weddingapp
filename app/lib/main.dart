@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:timezone/data/latest.dart' as tz;
 
 import 'firebase_options.dart';
 import 'user_context/user_context_provider.dart';
@@ -15,6 +16,7 @@ import 'utils/router.dart';
 /// para gestión de estado (autenticación, eventos, etc.)
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  tz.initializeTimeZones();
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,

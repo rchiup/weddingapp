@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import '../user_context/user_context_provider.dart';
 import 'checkin_service.dart';
@@ -27,9 +29,10 @@ class _CheckinScreenState extends State<CheckinScreen> {
     DateTime? dt;
     if (raw is String) dt = DateTime.tryParse(raw);
     if (dt == null) return '';
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m';
+    // Convertir a hora de Chile (America/Santiago)
+    final loc = tz.getLocation('America/Santiago');
+    final chile = tz.TZDateTime.from(dt, loc);
+    return DateFormat('HH:mm').format(chile);
   }
 
   Future<void> _doCheckin() async {
