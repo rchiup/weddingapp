@@ -89,6 +89,23 @@ class FotosRepository {
         .toList();
   }
 
+  /// GET /api/gallery/photos/<photoId>/comments/count
+  Future<int?> getPhotoCommentsCount(String photoId) async {
+    if (photoId.isEmpty) return null;
+    try {
+      final response =
+          await _dio.get('$_backendBaseUrl/api/gallery/photos/$photoId/comments/count');
+      final data = response.data as Map<String, dynamic>?;
+      if (data == null) return null;
+      final count = (data['count'] is int)
+          ? data['count'] as int
+          : (int.tryParse('${data['count']}') ?? 0);
+      return count;
+    } on DioException catch (_) {
+      return null;
+    }
+  }
+
   /// POST /api/gallery/photos/<photoId>/comments
   Future<void> addPhotoComment({
     required String photoId,

@@ -20,18 +20,19 @@ class FotosImageTile extends StatefulWidget {
 class _FotosImageTileState extends State<FotosImageTile> {
   Future<({int count, bool userLiked})?>? _likesFuture;
   Future<int>? _commentsCountFuture;
+  final FotosRepository _repo = FotosRepository();
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_likesFuture == null && widget.photo.id.isNotEmpty) {
       final userId = context.read<UserContextProvider>().userId ?? '';
-      _likesFuture = FotosRepository().getPhotoLikes(widget.photo.id, userId);
+      _likesFuture = _repo.getPhotoLikes(widget.photo.id, userId);
     }
     if (_commentsCountFuture == null && widget.photo.id.isNotEmpty) {
-      _commentsCountFuture = FotosRepository()
-          .getPhotoComments(widget.photo.id)
-          .then((list) => list.length);
+      _commentsCountFuture = _repo
+          .getPhotoCommentsCount(widget.photo.id)
+          .then((value) => value ?? 0);
     }
   }
 
