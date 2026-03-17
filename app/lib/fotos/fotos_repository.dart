@@ -76,6 +76,37 @@ class FotosRepository {
     }
   }
 
+  /// Comentarios: gallery/{photoId}/comments
+  /// GET /api/gallery/photos/<photoId>/comments
+  Future<List<Map<String, dynamic>>> getPhotoComments(String photoId) async {
+    if (photoId.isEmpty) return [];
+    final response =
+        await _dio.get('$_backendBaseUrl/api/gallery/photos/$photoId/comments');
+    final data = response.data as List<dynamic>? ?? [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map((m) => Map<String, dynamic>.from(m))
+        .toList();
+  }
+
+  /// POST /api/gallery/photos/<photoId>/comments
+  Future<void> addPhotoComment({
+    required String photoId,
+    required String userId,
+    required String name,
+    required String message,
+  }) async {
+    if (photoId.isEmpty || userId.isEmpty || message.trim().isEmpty) return;
+    await _dio.post(
+      '$_backendBaseUrl/api/gallery/photos/$photoId/comments',
+      data: {
+        'userId': userId,
+        'name': name,
+        'message': message.trim(),
+      },
+    );
+  }
+
   Future<FotoModel> uploadPhoto({
     required String eventId,
     required String userId,

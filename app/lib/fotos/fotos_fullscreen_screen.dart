@@ -24,11 +24,14 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
   final TextEditingController _commentController = TextEditingController();
   int? _initialLikeCount;
   bool? _initialIsLiked;
+  List<Map<String, dynamic>> _comments = [];
+  bool _loadingComments = false;
 
   @override
   void initState() {
     super.initState();
     _loadInitialLikes();
+    _loadComments();
   }
 
   /// Carga likes desde la API (backend lee gallery/{photoId}/likes). Sin Firestore.
@@ -42,6 +45,17 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
       setState(() {
         _initialLikeCount = result.count;
         _initialIsLiked = result.userLiked;
+      });
+    }
+  }
+
+  Future<void> _loadComments() async {
+    setState(() => _loadingComments = true);
+    final items = await _fotosRepository.getPhotoComments(widget.photo.id);
+    if (mounted) {
+      setState(() {
+        _comments = items;
+        _loadingComments = false;
       });
     }
   }
@@ -165,13 +179,28 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                         onPressed: () async {
                           final msg = _commentController.text.trim();
                           if (msg.isEmpty) return;
-                        await _socialService.addComment(
-                          eventId: widget.eventId,
-                          photoId: widget.photo.likesKey,
-                          name: userName,
-                          message: msg,
-                        );
+                          if (userId.isEmpty || widget.photo.id.isEmpty) return;
+                          await _fotosRepository.addPhotoComment(
+                            photoId: widget.photo.id,
+                            userId: userId,
+                            name: userName,
+                            message: msg,
+                          );
                           _commentController.clear();
+                          if (mounted) {
+                            setState(() {
+                              _comments.add({
+                                'id': DateTime.now()
+                                    .millisecondsSinceEpoch
+                                    .toString(),
+                                'userId': userId,
+                                'name': userName,
+                                'message': msg,
+                                'timestamp':
+                                    DateTime.now().toIso8601String(),
+                              });
+                            });
+                          }
                         },
                         icon: const Icon(Icons.send),
                       ),
@@ -181,55 +210,51 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
               ),
             ),
           Expanded(
-            child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _socialService.watchComments(
-                widget.eventId,
-                widget.photo.likesKey,
-              ),
-              builder: (context, snap) {
-                final list = snap.data ?? [];
-                if (list.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'Sin comentarios',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  );
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  itemCount: list.length,
-                  itemBuilder: (_, i) {
-                    final c = list[i];
-                    final ts = c['timestamp'];
-                    DateTime? dt;
-                    if (ts != null) {
-                      if (ts is Timestamp) dt = ts.toDate();
-                      else if (ts is DateTime) dt = ts;
-                    }
-                    final dateStr = dt != null
-                        ? '${dt.day}/${dt.month} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}'
-                        : '';
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${c['name'] ?? 'Invitado'} · $dateStr',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
+            child: _loadingComments
+                ? const Center(child: CircularProgressIndicator())
+                : _comments.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'Sin comentarios',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 12),
+                        itemCount: _comments.length,
+                        itemBuilder: (_, i) {
+                          final c = _comments[i];
+                          final ts = c['timestamp'];
+                          DateTime? dt;
+                          if (ts is String) {
+                            dt = DateTime.tryParse(ts);
+                          } else if (ts is Timestamp) {
+                            dt = ts.toDate();
+                          }
+                          final dateStr = dt != null
+                              ? '${dt.day}/${dt.month} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}'
+                              : '';
+                          return Padding(
+                            padding:
+                                const EdgeInsets.only(bottom: 8.0),
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${c['name'] ?? 'Invitado'} · $dateStr',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                                Text('${c['message'] ?? ''}'),
+                              ],
                             ),
-                          ),
-                          Text('${c['message'] ?? ''}'),
-                        ],
+                          );
+                        },
                       ),
-                    );
-                  },
-                );
-              },
-            ),
           ),
         ],
       ),
