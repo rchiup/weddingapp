@@ -49,7 +49,8 @@ class _EntryScreenState extends State<EntryScreen> {
   }
 
   Future<void> _showNameDialog(BuildContext context, UserContextProvider userContext) async {
-    final controller = TextEditingController();
+    final firstNameController = TextEditingController();
+    final lastNameController = TextEditingController();
     String? errorText;
     await showDialog<String>(
       context: context,
@@ -57,12 +58,14 @@ class _EntryScreenState extends State<EntryScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) {
           Future<void> submit() async {
-            final name = controller.text.trim();
-            if (name.isEmpty) {
-              setState(() => errorText = 'El nombre es obligatorio');
+            final first = firstNameController.text.trim();
+            final last = lastNameController.text.trim();
+            if (first.isEmpty || last.isEmpty) {
+              setState(() => errorText = 'Nombre y apellido son obligatorios');
               return;
             }
-            await userContext.setUserName(name);
+            final fullName = '$first $last';
+            await userContext.setUserName(fullName);
             if (ctx.mounted) Navigator.of(ctx).pop();
             if (context.mounted) _maybeAskSingle(context, userContext);
           }
@@ -71,20 +74,36 @@ class _EntryScreenState extends State<EntryScreen> {
             canPop: false,
             child: AlertDialog(
               title: const Text('¿Cómo te llamas?'),
-              content: TextField(
-                controller: controller,
-                decoration: InputDecoration(
-                  hintText: 'Tu nombre',
-                  border: const OutlineInputBorder(),
-                  errorText: errorText,
-                ),
-                autofocus: true,
-                textCapitalization: TextCapitalization.words,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => submit(),
-                onChanged: (_) {
-                  if (errorText != null) setState(() => errorText = null);
-                },
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: firstNameController,
+                    decoration: const InputDecoration(
+                      hintText: 'Nombre',
+                    ),
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.next,
+                    onChanged: (_) {
+                      if (errorText != null) setState(() => errorText = null);
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.x1),
+                  TextField(
+                    controller: lastNameController,
+                    decoration: InputDecoration(
+                      hintText: 'Apellido',
+                      errorText: errorText,
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => submit(),
+                    onChanged: (_) {
+                      if (errorText != null) setState(() => errorText = null);
+                    },
+                  ),
+                ],
               ),
               actions: [
                 SizedBox(
@@ -114,21 +133,21 @@ class _EntryScreenState extends State<EntryScreen> {
           canPop: false,
           child: AlertDialog(
             title: const Text('¿Estás soltero/a?'),
-            content: const Text('Responde para habilitar funciones del módulo de solteros.'),
+            content: const Text('Puedes activar el modo soltero para usar el chat y la lista.'),
             actions: [
               Row(
                 children: [
                   Expanded(
                     child: CustomButton(
-                      label: 'No',
-                      onPressed: () => Navigator.of(ctx).pop(false),
+                      label: 'Sí',
+                      onPressed: () => Navigator.of(ctx).pop(true),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.x1_5),
                   Expanded(
                     child: CustomButton(
-                      label: 'Sí',
-                      onPressed: () => Navigator.of(ctx).pop(true),
+                      label: 'No',
+                      onPressed: () => Navigator.of(ctx).pop(false),
                     ),
                   ),
                 ],
@@ -145,84 +164,16 @@ class _EntryScreenState extends State<EntryScreen> {
       return;
     }
 
-    await _showSingleConfirmDialog(context, userContext);
-  }
-
-  Future<void> _showSingleConfirmDialog(
-    BuildContext context,
-    UserContextProvider userContext,
-  ) async {
-    final eventId = userContext.eventId ?? '';
+    // Activar directamente modo soltero cuando responde que sí.
     final userId = userContext.userId ?? '';
     final name = (userContext.userName ?? '').trim();
-    if (eventId.trim().isEmpty || userId.trim().isEmpty || name.isEmpty) return;
-
-    bool accepted = false;
-    bool loading = false;
-    String? error;
-
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) {
-          Future<void> activate() async {
-            if (!accepted || loading) return;
-            setState(() {
-              loading = true;
-              error = null;
-            });
-            try {
-              await _solterosService.activateSingle(eventId: eventId, userId: userId, name: name);
-              await userContext.activateSingleForEvent(eventId);
-              if (ctx.mounted) Navigator.of(ctx).pop();
-            } catch (e) {
-              setState(() => error = '$e');
-            } finally {
-              if (ctx.mounted) setState(() => loading = false);
-            }
-          }
-
-          return PopScope(
-            canPop: false,
-            child: AlertDialog(
-              title: const Text('Modo soltero (irreversible)'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Si lo activas, aparecerás en la lista de solteros del evento y no podrás desactivarlo después.',
-                  ),
-                  const SizedBox(height: 12),
-                  CheckboxListTile(
-                    value: accepted,
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Entiendo y quiero activar modo soltero'),
-                    onChanged: loading ? null : (v) => setState(() => accepted = v ?? false),
-                  ),
-                  if (error != null) ...[
-                    const SizedBox(height: 8),
-                    Text(error!, style: const TextStyle(color: Colors.red)),
-                  ],
-                ],
-              ),
-              actions: [
-                SizedBox(
-                  width: double.infinity,
-                  child: CustomButton(
-                    label: loading ? 'Activando...' : 'Activar',
-                    onPressed: (!accepted || loading) ? null : activate,
-                    loading: loading,
-                    icon: Icons.favorite,
-                  ),
-                )
-              ],
-            ),
-          );
-        },
-      ),
-    );
+    if (userId.isEmpty || name.isEmpty) return;
+    try {
+      await _solterosService.activateSingle(eventId: eventId, userId: userId, name: name);
+      await userContext.activateSingleForEvent(eventId);
+    } catch (_) {
+      // Para demo mantenemos el error silencioso; la UX principal es la respuesta Sí/No.
+    }
   }
 
   @override
@@ -293,12 +244,17 @@ class _EntryScreenState extends State<EntryScreen> {
               ),
               if (userContext.isSingleForCurrentEvent) ...[
                 const SizedBox(height: AppSpacing.x2),
-                _EntryCard(
-                  title: '💘 Solteros',
-                  subtitle: 'Chat y lista de solteros del evento',
-                  icon: Icons.favorite_border,
-                  onTap: () => context.go('/solteros'),
-                  enabled: true,
+                Consumer<SolterosProvider>(
+                  builder: (context, solteros, _) {
+                    final hasUnread = solteros.hasAnyUnread;
+                    return _EntryCard(
+                      title: hasUnread ? '💘 Solteros (nuevo)' : '💘 Solteros',
+                      subtitle: 'Chat y lista de solteros del evento',
+                      icon: Icons.favorite_border,
+                      onTap: () => context.go('/solteros'),
+                      enabled: true,
+                    );
+                  },
                 ),
               ],
               const SizedBox(height: AppSpacing.x2),

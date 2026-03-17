@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../user_context/user_context_provider.dart';
+import '../ui/app_theme.dart';
+import 'solteros_provider.dart';
 import 'solteros_service.dart';
 
 class SolterosDmScreen extends StatefulWidget {
@@ -30,6 +32,10 @@ class _SolterosDmScreenState extends State<SolterosDmScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _refresh(initial: true));
     _timer = Timer.periodic(const Duration(seconds: 3), (_) => _refresh());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<SolterosProvider>().clearDmUnread();
+    });
   }
 
   @override
@@ -57,10 +63,18 @@ class _SolterosDmScreenState extends State<SolterosDmScreen> {
       );
       if (!mounted) return;
       if (items.isEmpty) return;
+      final hadMessages = _messages.isNotEmpty;
       setState(() {
         _messages = [..._messages, ...items];
         _lastCreatedAt = _messages.isNotEmpty ? _messages.last.createdAt : _lastCreatedAt;
       });
+      if (!initial || hadMessages) {
+        final viewer = viewerId;
+        final hasForeign = items.any((m) => m.userId != viewer);
+        if (hasForeign) {
+          context.read<SolterosProvider>().markDmUnread();
+        }
+      }
       await Future<void>.delayed(const Duration(milliseconds: 50));
       if (!mounted) return;
       if (_scroll.hasClients) {
@@ -123,6 +137,10 @@ class _SolterosDmScreenState extends State<SolterosDmScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text('Chat'),
       ),
       body: Column(
@@ -130,7 +148,7 @@ class _SolterosDmScreenState extends State<SolterosDmScreen> {
           Expanded(
             child: ListView.builder(
               controller: _scroll,
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(AppSpacing.x2),
               itemCount: _messages.length,
               itemBuilder: (context, i) {
                 final m = _messages[i];
@@ -142,8 +160,10 @@ class _SolterosDmScreenState extends State<SolterosDmScreen> {
                     padding: const EdgeInsets.all(10),
                     constraints: const BoxConstraints(maxWidth: 340),
                     decoration: BoxDecoration(
-                      color: mine ? Colors.pink.shade100 : Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(10),
+                      color: mine ? AppColors.primary.withOpacity(0.12) : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: AppShadows.soft,
+                      border: Border.all(color: AppColors.border),
                     ),
                     child: Column(
                       crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -151,7 +171,7 @@ class _SolterosDmScreenState extends State<SolterosDmScreen> {
                         if (!mine)
                           Text(
                             m.name,
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                            style: AppTextStyles.subtitle.copyWith(fontSize: 12, fontWeight: FontWeight.w700),
                           ),
                         Text(m.text),
                       ],
@@ -164,7 +184,7 @@ class _SolterosDmScreenState extends State<SolterosDmScreen> {
           SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.x2, AppSpacing.x1, AppSpacing.x2, AppSpacing.x2),
               child: Row(
                 children: [
                   Expanded(
@@ -172,18 +192,17 @@ class _SolterosDmScreenState extends State<SolterosDmScreen> {
                       controller: _controller,
                       decoration: const InputDecoration(
                         hintText: 'Escribe un mensaje...',
-                        border: OutlineInputBorder(),
-                        isDense: true,
                       ),
                       textInputAction: TextInputAction.send,
                       onSubmitted: (_) => _send(),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.x1),
                   IconButton(
                     onPressed: _send,
                     icon: const Icon(Icons.send),
                     tooltip: 'Enviar',
+                  color: AppColors.primary,
                   ),
                 ],
               ),

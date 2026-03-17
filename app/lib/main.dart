@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:timezone/data/latest.dart' as tz;
 
 import 'firebase_options.dart';
+import 'solteros/solteros_provider.dart';
 import 'ui/app_theme.dart';
 import 'user_context/user_context_provider.dart';
 import 'utils/qa_config.dart';
@@ -49,9 +50,7 @@ class WeddingApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: userContext),
-        // Aquí se agregarán más providers según se necesiten
-        // ChangeNotifierProvider(create: (_) => EventProvider()),
-        // ChangeNotifierProvider(create: (_) => MatchProvider()),
+        ChangeNotifierProvider(create: (_) => SolterosProvider()),
       ],
       child: MaterialApp.router(
         title: 'Wedding App',

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../user_context/user_context_provider.dart';
+import 'solteros_provider.dart';
 import '../ui/app_theme.dart';
 import 'solteros_service.dart';
 
@@ -29,6 +30,11 @@ class _SolterosChatScreenState extends State<SolterosChatScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _refresh(initial: true));
     _timer = Timer.periodic(const Duration(seconds: 3), (_) => _refresh());
+    // Al abrir el chat global, limpiamos el indicador de pendientes.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<SolterosProvider>().clearGlobalUnread();
+    });
   }
 
   @override
@@ -55,10 +61,20 @@ class _SolterosChatScreenState extends State<SolterosChatScreen> {
       );
       if (!mounted) return;
       if (items.isEmpty) return;
+      final hadMessages = _messages.isNotEmpty;
       setState(() {
         _messages = [..._messages, ...items];
         _lastCreatedAt = _messages.isNotEmpty ? _messages.last.createdAt : _lastCreatedAt;
       });
+      // Si llegaron mensajes nuevos y alguno no es mío, marcamos como no leído
+      // (cuando no estamos ya dentro del chat se verá en el menú).
+      if (!initial || hadMessages) {
+        final viewer = viewerId;
+        final hasForeign = items.any((m) => m.userId != viewer);
+        if (hasForeign) {
+          context.read<SolterosProvider>().markGlobalUnread();
+        }
+      }
       await Future<void>.delayed(const Duration(milliseconds: 50));
       if (!mounted) return;
       if (_scroll.hasClients) {
