@@ -61,7 +61,13 @@ class _FotosImageTileState extends State<FotosImageTile> {
         if (!mounted) return;
         if (deleted == true) {
           // Recargar el grid para que desaparezca al instante.
-          context.read<FotosProvider>().refresh(widget.eventId);
+          final viewerId = context.read<UserContextProvider>().userId ?? '';
+          final includePrivate = context.read<UserContextProvider>().isAdmin;
+          context.read<FotosProvider>().refresh(
+                widget.eventId,
+                viewerId: viewerId,
+                includePrivate: includePrivate,
+              );
         }
       },
       child: Column(

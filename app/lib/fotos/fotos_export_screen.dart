@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../user_context/user_context_provider.dart';
 import 'fotos_provider.dart';
+import 'foto_model.dart';
 
 /// Export básico de fotos (links)
 class FotosExportScreen extends StatelessWidget {
@@ -14,6 +15,8 @@ class FotosExportScreen extends StatelessWidget {
     final userContext = context.watch<UserContextProvider>();
     final provider = context.watch<FotosProvider>();
     final eventId = userContext.eventId ?? '';
+    final viewerId = userContext.userId ?? '';
+    final includePrivate = userContext.isAdmin;
 
     return Scaffold(
       appBar: AppBar(
@@ -24,13 +27,17 @@ class FotosExportScreen extends StatelessWidget {
           tooltip: 'Volver',
         ),
       ),
-      body: FutureBuilder(
-        future: provider.fetchNow(eventId),
+      body: FutureBuilder<List<FotoModel>>(
+        future: provider.fetchNow(
+          eventId,
+          viewerId: viewerId,
+          includePrivate: includePrivate,
+        ),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          final photos = snapshot.data ?? [];
+          final photos = snapshot.data ?? <FotoModel>[];
           if (photos.isEmpty) {
             return const Center(child: Text('Sin fotos para exportar'));
           }
