@@ -19,6 +19,7 @@ class FotosImageTile extends StatefulWidget {
 
 class _FotosImageTileState extends State<FotosImageTile> {
   Future<({int count, bool userLiked})?>? _likesFuture;
+  Future<int>? _commentsCountFuture;
 
   @override
   void didChangeDependencies() {
@@ -26,6 +27,11 @@ class _FotosImageTileState extends State<FotosImageTile> {
     if (_likesFuture == null && widget.photo.id.isNotEmpty) {
       final userId = context.read<UserContextProvider>().userId ?? '';
       _likesFuture = FotosRepository().getPhotoLikes(widget.photo.id, userId);
+    }
+    if (_commentsCountFuture == null && widget.photo.id.isNotEmpty) {
+      _commentsCountFuture = FotosRepository()
+          .getPhotoComments(widget.photo.id)
+          .then((list) => list.length);
     }
   }
 
@@ -92,7 +98,16 @@ class _FotosImageTileState extends State<FotosImageTile> {
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(Icons.chat_bubble_outline, size: 14, color: Colors.grey),
+              const Icon(Icons.chat_bubble_outline,
+                  size: 14, color: Colors.grey),
+              const SizedBox(width: 2),
+              FutureBuilder<int>(
+                future: _commentsCountFuture,
+                builder: (_, snap) => Text(
+                  '${snap.data ?? 0}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
             ],
           ),
         ],
