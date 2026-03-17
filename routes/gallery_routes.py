@@ -243,3 +243,85 @@ def get_photo_likes(photo_id):
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# ------------------------------
+# COMENTARIOS POR FOTO (gallery/{photoId}/comments)
+# ------------------------------
+
+@gallery_bp.route('/photos/<photo_id>/comments', methods=['POST'])
+def add_photo_comment(photo_id):
+    """
+    Agrega un comentario a una foto en:
+      gallery/{photoId}/comments/{autoId}
+
+    Body JSON:
+    {
+      "userId": "...",
+      "name": "Nombre",
+      "message": "Texto del comentario"
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    user_id = (data.get('userId') or '').strip()
+    name = (data.get('name') or '').strip() or 'Invitado'
+    message = (data.get('message') or '').strip()
+
+    if not photo_id or not user_id or not message:
+        return jsonify({'error': 'photoId, userId y message son requeridos'}), 400
+
+    try:
+        comments_ref = (
+            firebase_service.db
+            .collection('gallery')
+            .document(photo_id)
+            .collection('comments')
+        )
+
+        doc_ref = comments_ref.document()
+        doc_ref.set({
+            'userId': user_id,
+            'name': name,
+            'message': message,
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+        })
+
+        return jsonify({'id': doc_ref.id}), 201
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
+@gallery_bp.route('/photos/<photo_id>/comments', methods=['GET'])
+def get_photo_comments(photo_id):
+    """
+    Lista comentarios de una foto:
+      gallery/{photoId}/comments
+
+    Devuelve lista ordenada por timestamp ascendente.
+    """
+    try:
+        comments_ref = (
+            firebase_service.db
+            .collection('gallery')
+            .document(photo_id)
+            .collection('comments')
+        )
+
+        items = []
+        for doc in comments_ref.stream():
+            data = doc.to_dict() or {}
+            items.append({
+                'id': doc.id,
+                'userId': data.get('userId', ''),
+                'name': data.get('name', 'Invitado'),
+                'message': data.get('message', ''),
+                'timestamp': data.get('timestamp'),
+            })
+
+        items.sort(key=lambda x: x.get('timestamp') or '')
+
+        return jsonify(items), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
