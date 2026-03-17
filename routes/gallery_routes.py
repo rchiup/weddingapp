@@ -59,6 +59,7 @@ def upload_gallery_image():
         file = request.files['file']
         event_id = request.form.get('eventId')
         user_id = request.form.get('userId')
+        user_name = (request.form.get('userName') or '').strip() or 'Invitado'
 
         if not event_id or not user_id:
             return jsonify({'error': 'eventId y userId son requeridos'}), 400
@@ -93,6 +94,7 @@ def upload_gallery_image():
         doc_data = {
             'imageUrl': image_url,
             'userId': user_id,
+            'userName': user_name,
             'eventId': event_id,
             'createdAt': datetime.now(timezone.utc).isoformat(),
         }
@@ -112,7 +114,12 @@ def upload_gallery_image():
 def delete_photo(photo_id):
 
     try:
-        return jsonify({'message': 'Foto eliminada'}), 200
+        if not photo_id:
+            return jsonify({'error': 'photoId requerido'}), 400
+
+        # Eliminar metadata del documento (para demo es suficiente).
+        firebase_service.delete_document('gallery', photo_id)
+        return jsonify({'ok': True}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
@@ -205,6 +212,7 @@ def get_event_photos(event_id):
                 'imageUrl': data.get('imageUrl', ''),
                 'eventId': data.get('eventId', ''),
                 'userId': data.get('userId', ''),
+                'userName': data.get('userName', ''),
                 'createdAt': created_at,
             })
 
