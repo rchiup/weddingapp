@@ -171,6 +171,7 @@ class FotosRepository {
       id: photoId.isEmpty ? DateTime.now().millisecondsSinceEpoch.toString() : photoId,
       url: url,
       uploadedBy: userId,
+      uploadedByName: userName,
       createdAt: DateTime.now(),
     );
 
