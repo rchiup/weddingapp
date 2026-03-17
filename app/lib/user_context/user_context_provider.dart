@@ -117,4 +117,11 @@ class UserContextProvider extends ChangeNotifier {
     await prefs.remove(_prefsIsAdminKey);
     notifyListeners();
   }
+
+  Future<void> setIsAdmin(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    _isAdmin = value;
+    await prefs.setBool(_prefsIsAdminKey, value);
+    notifyListeners();
+  }
 }

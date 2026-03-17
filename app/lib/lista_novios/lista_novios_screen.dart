@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../user_context/user_context_provider.dart';
 import 'lista_novios_button.dart';
-import 'lista_novios_model.dart';
+import 'novios_registry_service.dart';
 
 /// Pantalla de lista de novios
 class ListaNoviosScreen extends StatelessWidget {
@@ -11,12 +11,7 @@ class ListaNoviosScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final settings = context.watch<UserContextProvider>().settings;
-    final model = ListaNoviosModel(
-      provider: settings.giftRegistryProvider,
-      code: settings.giftRegistryCode,
-      overrideUrl: settings.giftRegistryUrlOverride,
-    );
+    final eventId = context.watch<UserContextProvider>().eventId ?? '';
 
     return Scaffold(
       appBar: AppBar(
@@ -39,7 +34,25 @@ class ListaNoviosScreen extends StatelessWidget {
             const SizedBox(height: 8),
             const Text('Presiona el botón para abrir la lista de regalos.'),
             const SizedBox(height: 16),
-            ListaNoviosButton(model: model),
+            FutureBuilder<String?>(
+              future: eventId.isEmpty
+                  ? Future.value(null)
+                  : NoviosRegistryService().getRegistryUrl(eventId),
+              builder: (_, snap) {
+                final url = snap.data;
+                final loading = snap.connectionState == ConnectionState.waiting;
+                if (loading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (url == null || url.isEmpty) {
+                  return const Text(
+                    'Aún no está publicada la lista de regalos.',
+                    style: TextStyle(color: Colors.grey),
+                  );
+                }
+                return ListaNoviosButton(url: url);
+              },
+            ),
           ],
         ),
       ),

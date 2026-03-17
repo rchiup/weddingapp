@@ -9,6 +9,7 @@ import '../fotos/fotos_flow.dart';
 import '../admin_export/admin_export_flow.dart';
 import '../mesas/mesas_flow.dart';
 import '../lista_novios/lista_novios_screen.dart';
+import '../lista_novios/novios_admin_screen.dart';
 import '../rsvp/rsvp_flow.dart';
 import '../solteros/solteros_flow.dart';
 import '../user_context/user_context_provider.dart';
@@ -69,6 +70,11 @@ class AppRouter {
           path: '/lista_novios',
           name: 'lista_novios',
           builder: (context, state) => const ListaNoviosScreen(),
+        ),
+        GoRoute(
+          path: '/novios_admin',
+          name: 'novios_admin',
+          builder: (context, state) => const NoviosAdminScreen(),
         ),
         GoRoute(
           path: '/checkin',
