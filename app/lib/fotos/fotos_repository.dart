@@ -10,8 +10,19 @@ const String _backendBaseUrl = 'https://weddingapp-c6ix.onrender.com';
 class FotosRepository {
   final Dio _dio = Dio();
 
-  Future<List<FotoModel>> fetchPhotos(String eventId) async {
-    final response = await _dio.get('$_backendBaseUrl/api/gallery/event/$eventId');
+  Future<List<FotoModel>> fetchPhotos(
+    String eventId, {
+    required String viewerId,
+    required bool includePrivate,
+  }) async {
+    final uri = Uri.parse(_backendBaseUrl).replace(
+      path: '/api/gallery/event/$eventId',
+      queryParameters: {
+        if (viewerId.isNotEmpty) 'viewerId': viewerId,
+        if (includePrivate) 'includePrivate': '1',
+      },
+    );
+    final response = await _dio.get(uri.toString());
     final data = response.data as Map<String, dynamic>;
     final rawItems = (data['items'] as List<dynamic>? ?? []);
     final items = rawItems
@@ -133,6 +144,7 @@ class FotosRepository {
     required String eventId,
     required String userId,
     required String userName,
+    required String visibility,
     required XFile file,
     void Function(double progress)? onProgress,
   }) async {
@@ -151,6 +163,7 @@ class FotosRepository {
         'eventId': eventId,
         'userId': userId,
         'userName': userName,
+        'visibility': visibility,
       });
 
       final response = await _dio.post(
@@ -172,6 +185,7 @@ class FotosRepository {
       url: url,
       uploadedBy: userId,
       uploadedByName: userName,
+      visibility: visibility,
       createdAt: DateTime.now(),
     );
 

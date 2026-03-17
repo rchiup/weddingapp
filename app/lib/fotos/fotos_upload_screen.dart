@@ -7,9 +7,16 @@ import 'fotos_provider.dart';
 
 /// Pantalla de subida de fotos del flujo de fotos
 ///
-/// UI básica para seleccionar y subir fotos (sin lógica).
-class FotosUploadScreen extends StatelessWidget {
+/// UI básica para seleccionar y subir fotos (visibilidad pública o solo novios).
+class FotosUploadScreen extends StatefulWidget {
   const FotosUploadScreen({super.key});
+
+  @override
+  State<FotosUploadScreen> createState() => _FotosUploadScreenState();
+}
+
+class _FotosUploadScreenState extends State<FotosUploadScreen> {
+  bool _onlyNovios = false;
 
   @override
   Widget build(BuildContext context) {
@@ -23,6 +30,16 @@ class FotosUploadScreen extends StatelessWidget {
           const Icon(Icons.cloud_upload_outlined, size: 48),
           const SizedBox(height: 12),
           const Text('Sube tus fotos del evento'),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: 360,
+            child: SwitchListTile(
+              value: _onlyNovios,
+              onChanged: provider.isUploading ? null : (v) => setState(() => _onlyNovios = v),
+              title: const Text('Solo novios'),
+              subtitle: const Text('Si lo activas, solo lo verán los novios (y tú).'),
+            ),
+          ),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: provider.isUploading
@@ -42,6 +59,7 @@ class FotosUploadScreen extends StatelessWidget {
                 eventId: userContext.eventId ?? '',
                 userId: userContext.userId ?? '',
                 userName: userContext.userName ?? 'Invitado',
+                visibility: _onlyNovios ? 'novios' : 'public',
                 files: files,
               );
               if (!context.mounted) return;

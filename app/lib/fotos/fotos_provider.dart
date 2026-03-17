@@ -30,7 +30,11 @@ class FotosProvider extends ChangeNotifier {
   double get uploadProgress => _uploadProgress;
   String? get errorMessage => _errorMessage;
 
-  Future<void> loadInitial(String eventId) async {
+  Future<void> loadInitial(
+    String eventId, {
+    required String viewerId,
+    required bool includePrivate,
+  }) async {
     if (eventId.isEmpty) {
       _errorMessage = 'Debes unirte a un evento primero';
       notifyListeners();
@@ -40,7 +44,11 @@ class FotosProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     try {
-      final items = await _repository.fetchPhotos(eventId);
+      final items = await _repository.fetchPhotos(
+        eventId,
+        viewerId: viewerId,
+        includePrivate: includePrivate,
+      );
       _photos
         ..clear()
         ..addAll(items);
@@ -54,8 +62,16 @@ class FotosProvider extends ChangeNotifier {
     }
   }
 
-  Future<List<FotoModel>> fetchNow(String eventId) async {
-    return _repository.fetchPhotos(eventId);
+  Future<List<FotoModel>> fetchNow(
+    String eventId, {
+    required String viewerId,
+    required bool includePrivate,
+  }) async {
+    return _repository.fetchPhotos(
+      eventId,
+      viewerId: viewerId,
+      includePrivate: includePrivate,
+    );
   }
 
   Future<void> loadMore() async {
@@ -70,14 +86,19 @@ class FotosProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> refresh(String eventId) async {
-    await loadInitial(eventId);
+  Future<void> refresh(
+    String eventId, {
+    required String viewerId,
+    required bool includePrivate,
+  }) async {
+    await loadInitial(eventId, viewerId: viewerId, includePrivate: includePrivate);
   }
 
   Future<void> uploadPhotos({
     required String eventId,
     required String userId,
     required String userName,
+    required String visibility,
     required List<XFile> files,
   }) async {
     if (eventId.isEmpty || userId.isEmpty) {
@@ -93,6 +114,7 @@ class FotosProvider extends ChangeNotifier {
           eventId: eventId,
           userId: userId,
           userName: userName,
+          visibility: visibility,
           file: file,
           onProgress: (progress) {
             _uploadProgress = progress;
@@ -100,7 +122,8 @@ class FotosProvider extends ChangeNotifier {
           },
         );
       }
-      await loadInitial(eventId);
+      // refrescar feed (público por defecto); el feed real se recarga al volver
+      await loadInitial(eventId, viewerId: userId, includePrivate: false);
     } catch (e) {
       _errorMessage = e.toString();
     } finally {

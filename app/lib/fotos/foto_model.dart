@@ -6,6 +6,7 @@ class FotoModel {
   final String url;
   final String uploadedBy;
   final String uploadedByName;
+  final String visibility; // 'public' | 'novios'
   final DateTime createdAt;
 
   /// Clave estable para likes/comentarios (misma URL = misma clave aunque el backend cambie photoId)
@@ -23,6 +24,7 @@ class FotoModel {
     required this.url,
     required this.uploadedBy,
     required this.uploadedByName,
+    required this.visibility,
     required this.createdAt,
   });
 
@@ -38,6 +40,7 @@ class FotoModel {
       url: data['url'] ?? data['imageUrl'] ?? '',
       uploadedBy: data['uploadedBy'] ?? data['userId'] ?? '',
       uploadedByName: (data['uploadedByName'] ?? data['userName'] ?? '').toString(),
+      visibility: (data['visibility'] ?? 'public').toString(),
       createdAt: createdAt,
     );
   }

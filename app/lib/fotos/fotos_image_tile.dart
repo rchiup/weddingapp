@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../user_context/user_context_provider.dart';
 import 'foto_model.dart';
 import 'fotos_fullscreen_screen.dart';
+import 'fotos_provider.dart';
 import 'fotos_repository.dart';
 
 /// Tile de foto con recorte, "Subido por", like count vía API y apertura a pantalla completa
@@ -48,8 +49,8 @@ class _FotosImageTileState extends State<FotosImageTile> {
             : 'Invitado');
 
     return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
+      onTap: () async {
+        final deleted = await Navigator.of(context).push<bool>(
           MaterialPageRoute(
             builder: (_) => FotosFullscreenScreen(
               photo: widget.photo,
@@ -57,6 +58,11 @@ class _FotosImageTileState extends State<FotosImageTile> {
             ),
           ),
         );
+        if (!mounted) return;
+        if (deleted == true) {
+          // Recargar el grid para que desaparezca al instante.
+          context.read<FotosProvider>().refresh(widget.eventId);
+        }
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -66,16 +72,36 @@ class _FotosImageTileState extends State<FotosImageTile> {
             borderRadius: BorderRadius.circular(8),
             child: AspectRatio(
               aspectRatio: 1,
-              child: Image.network(
-                widget.photo.url,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const Center(
-                  child: Icon(Icons.broken_image_outlined),
-                ),
-                loadingBuilder: (context, child, progress) {
-                  if (progress == null) return child;
-                  return const Center(child: CircularProgressIndicator());
-                },
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    widget.photo.url,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Center(
+                      child: Icon(Icons.broken_image_outlined),
+                    ),
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return const Center(child: CircularProgressIndicator());
+                    },
+                  ),
+                  if (widget.photo.visibility.toLowerCase() == 'novios')
+                    const Positioned(
+                      top: 6,
+                      right: 6,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black45,
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.all(6),
+                          child: Icon(Icons.lock, size: 14, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),

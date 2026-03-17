@@ -41,11 +41,13 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
   Widget build(BuildContext context) {
     final userContext = context.watch<UserContextProvider>();
     final eventId = userContext.eventId ?? '';
+    final viewerId = userContext.userId ?? '';
+    final includePrivate = userContext.isAdmin;
     final provider = context.watch<FotosProvider>();
 
     if (!_didLoad) {
       _didLoad = true;
-      provider.loadInitial(eventId);
+      provider.loadInitial(eventId, viewerId: viewerId, includePrivate: includePrivate);
     }
 
     if (provider.isLoading) {
@@ -57,7 +59,8 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
     }
 
     return RefreshIndicator(
-      onRefresh: () => provider.refresh(eventId),
+      onRefresh: () =>
+          provider.refresh(eventId, viewerId: viewerId, includePrivate: includePrivate),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: GridView.builder(
