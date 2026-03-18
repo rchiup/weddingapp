@@ -60,5 +60,29 @@ class NoviosRegistryService {
       },
     );
   }
+
+  Future<List<Map<String, dynamic>>> searchLocation({
+    required String query,
+    int limit = 5,
+  }) async {
+    final q = query.trim();
+    if (q.isEmpty) return [];
+    final res = await _dio.get(
+      '$_backendBaseUrl/api/gallery/geocode',
+      queryParameters: {
+        'q': q,
+        'limit': limit.clamp(1, 10),
+      },
+    );
+    final data = res.data as Map<String, dynamic>? ?? {};
+    final items = data['items'];
+    if (items is List) {
+      return items
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+    return [];
+  }
 }
 

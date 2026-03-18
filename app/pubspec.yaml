@@ -22,8 +22,11 @@ dependencies:
   google_fonts: ^6.3.0
   cached_network_image: ^3.3.1
   image_picker: ^1.0.7
+  flutter_map: ^8.2.2
   intl: ^0.18.1
+  geolocator: ^14.0.2
   timezone: ^0.9.4
+  latlong2: ^0.9.1
   
   # Utilidades
   shared_preferences: ^2.2.2

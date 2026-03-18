@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+import '../lista_novios/novios_registry_service.dart';
 import '../user_context/user_context_provider.dart';
 import '../ui/app_theme.dart';
 import '../ui/custom_button.dart';
@@ -21,11 +23,22 @@ class CheckinScreen extends StatefulWidget {
 
 class _CheckinScreenState extends State<CheckinScreen> {
   final CheckinService _service = CheckinService();
+  final NoviosRegistryService _registryService = NoviosRegistryService();
+  static const double _autoCheckinRadiusMeters = 150;
   bool _loading = false;
   bool _done = false;
   bool _loadingArrivals = false;
+  bool _loadingGeo = false;
   String _query = '';
+  String? _geoStatus;
   List<Map<String, dynamic>> _arrivals = [];
+  Map<String, dynamic>? _eventLocation;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadEventLocation());
+  }
 
   String _formatArrivalTime(dynamic raw) {
     if (raw == null) return '';
@@ -73,6 +86,102 @@ class _CheckinScreenState extends State<CheckinScreen> {
     }
   }
 
+  Future<void> _loadEventLocation() async {
+    final userContext = context.read<UserContextProvider>();
+    final eventId = userContext.eventId;
+    if (eventId == null || eventId.isEmpty) return;
+    try {
+      final location = await _registryService.getLocation(eventId);
+      if (!mounted) return;
+      setState(() {
+        _eventLocation = location;
+      });
+    } catch (_) {
+      // Si no hay ubicación configurada, simplemente no mostramos el flujo automático.
+    }
+  }
+
+  Future<void> _enableLocationCheck() async {
+    final userContext = context.read<UserContextProvider>();
+    final eventId = userContext.eventId;
+    if (eventId == null || eventId.isEmpty) {
+      if (!mounted) return;
+      setState(() => _geoStatus = 'Debes unirte a un evento primero.');
+      return;
+    }
+
+    if (_eventLocation == null) {
+      await _loadEventLocation();
+    }
+
+    final location = _eventLocation;
+    final latitude = location?['latitude'];
+    final longitude = location?['longitude'];
+    if (latitude is! num || longitude is! num) {
+      if (!mounted) return;
+      setState(() => _geoStatus = 'Los novios aún no configuraron la ubicación del evento.');
+      return;
+    }
+
+    setState(() {
+      _loadingGeo = true;
+      _geoStatus = null;
+    });
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (!mounted) return;
+        setState(() => _geoStatus = 'Activa la ubicación del celular para usar el check-in automático.');
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied) {
+        if (!mounted) return;
+        setState(() => _geoStatus = 'Sin permiso de ubicación, no puedo marcarte automáticamente.');
+        return;
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        setState(() => _geoStatus = 'La ubicación quedó bloqueada. Actívala desde el navegador o ajustes.');
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      final distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        latitude.toDouble(),
+        longitude.toDouble(),
+      );
+
+      if (!mounted) return;
+      if (distance <= _autoCheckinRadiusMeters) {
+        setState(() => _geoStatus = 'Estás dentro del rango. Marcando llegada...');
+        await _doCheckin();
+      } else {
+        setState(
+          () => _geoStatus =
+              'Te falta aprox. ${distance.toStringAsFixed(0)} m para marcar automático. Igual puedes hacerlo manual.',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _geoStatus = 'No se pudo usar la ubicación: $e');
+    } finally {
+      if (mounted) setState(() => _loadingGeo = false);
+    }
+  }
+
   Future<void> _loadArrivals() async {
     final userContext = context.read<UserContextProvider>();
     final eventId = userContext.eventId;
@@ -112,6 +221,33 @@ class _CheckinScreenState extends State<CheckinScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (!_done) ...[
+            CustomCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Check-in automático', style: AppTextStyles.title),
+                  const SizedBox(height: AppSpacing.x1),
+                  Text(
+                    'Activa la ubicación para que te marque solo si ya llegaste al evento.',
+                    style: AppTextStyles.subtitle,
+                  ),
+                  const SizedBox(height: AppSpacing.x2),
+                  CustomButton(
+                    label: _loadingGeo ? 'Verificando...' : 'Activar ubicación',
+                    icon: Icons.my_location,
+                    loading: _loadingGeo,
+                    onPressed: _loadingGeo ? null : _enableLocationCheck,
+                  ),
+                  if (_geoStatus != null) ...[
+                    const SizedBox(height: AppSpacing.x1),
+                    Text(_geoStatus!, style: AppTextStyles.subtitle),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.x2),
+          ],
           if (_done) ...[
             CustomCard(
               child: Row(
@@ -222,7 +358,10 @@ class _CheckinScreenState extends State<CheckinScreen> {
                 children: [
                   Text('¿Ya llegaste al evento?', style: AppTextStyles.title),
                   const SizedBox(height: AppSpacing.x1),
-                  Text('Marca tu llegada para ver quién más ya llegó.', style: AppTextStyles.subtitle),
+                  Text(
+                    'Si prefieres no usar ubicación, marca tu llegada manualmente para ver quién más llegó.',
+                    style: AppTextStyles.subtitle,
+                  ),
                   const SizedBox(height: AppSpacing.x2),
                   CustomButton(
                     label: _loading ? 'Registrando...' : 'Ya llegué',
