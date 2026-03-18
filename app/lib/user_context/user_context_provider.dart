@@ -22,6 +22,8 @@ class UserContextProvider extends ChangeNotifier {
   static const _prefsSingleEventIdKey = 'single_event_id';
   static const _prefsSingleActivatedAtKey = 'single_activated_at';
   static const _prefsSingleDeclinedEventIdKey = 'single_declined_event_id';
+  static const _prefsLocationPromptedEventIdKey = 'location_prompted_event_id';
+  static const _prefsAutoCheckinEventIdKey = 'auto_checkin_event_id';
 
   bool _isInitialized = false;
   String? _userId;
@@ -36,6 +38,8 @@ class UserContextProvider extends ChangeNotifier {
   String? _singleEventId;
   DateTime? _singleActivatedAt;
   String? _singleDeclinedEventId;
+  String? _locationPromptedEventId;
+  String? _autoCheckinEventId;
 
   bool get isInitialized => _isInitialized;
   String? get userId => _userId;
@@ -54,6 +58,10 @@ class UserContextProvider extends ChangeNotifier {
       _isSingle && _singleEventId != null && _singleEventId == _eventId;
   bool get declinedSingleForCurrentEvent =>
       _singleDeclinedEventId != null && _singleDeclinedEventId == _eventId;
+  bool get locationPromptedForCurrentEvent =>
+      _locationPromptedEventId != null && _locationPromptedEventId == _eventId;
+  bool get autoCheckinDoneForCurrentEvent =>
+      _autoCheckinEventId != null && _autoCheckinEventId == _eventId;
 
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
@@ -81,6 +89,8 @@ class UserContextProvider extends ChangeNotifier {
     final rawSingleAt = prefs.getString(_prefsSingleActivatedAtKey);
     _singleActivatedAt = rawSingleAt != null ? DateTime.tryParse(rawSingleAt) : null;
     _singleDeclinedEventId = prefs.getString(_prefsSingleDeclinedEventIdKey);
+    _locationPromptedEventId = prefs.getString(_prefsLocationPromptedEventIdKey);
+    _autoCheckinEventId = prefs.getString(_prefsAutoCheckinEventIdKey);
     _isInitialized = true;
     notifyListeners();
   }
@@ -136,6 +146,8 @@ class UserContextProvider extends ChangeNotifier {
     await prefs.remove(_prefsEventActiveKey);
     await prefs.remove(_prefsEventSettingsKey);
     await prefs.remove(_prefsIsAdminKey);
+    await prefs.remove(_prefsLocationPromptedEventIdKey);
+    await prefs.remove(_prefsAutoCheckinEventIdKey);
     notifyListeners();
   }
 
@@ -171,6 +183,24 @@ class UserContextProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _singleDeclinedEventId = normalized;
     await prefs.setString(_prefsSingleDeclinedEventIdKey, normalized);
+    notifyListeners();
+  }
+
+  Future<void> markLocationPromptedForEvent(String eventId) async {
+    final normalized = eventId.trim();
+    if (normalized.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    _locationPromptedEventId = normalized;
+    await prefs.setString(_prefsLocationPromptedEventIdKey, normalized);
+    notifyListeners();
+  }
+
+  Future<void> markAutoCheckinDoneForEvent(String eventId) async {
+    final normalized = eventId.trim();
+    if (normalized.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    _autoCheckinEventId = normalized;
+    await prefs.setString(_prefsAutoCheckinEventIdKey, normalized);
     notifyListeners();
   }
 }

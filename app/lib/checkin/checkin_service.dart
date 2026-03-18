@@ -11,6 +11,37 @@ class CheckinService {
 
   static const String _backendBaseUrl = 'https://weddingapp-c6ix.onrender.com';
 
+  Future<List<Map<String, dynamic>>> getArrivals({
+    required String eventId,
+    String? query,
+  }) async {
+    if (eventId.isEmpty) return [];
+    final uri = Uri.parse(_backendBaseUrl).replace(
+      path: '/api/gallery/event/$eventId/arrivals',
+      queryParameters: (query == null || query.trim().isEmpty) ? null : {'q': query.trim()},
+    );
+    final res = await _dio.get(uri.toString()).timeout(const Duration(seconds: 20));
+    final data = res.data as Map<String, dynamic>? ?? {};
+    final items = (data['items'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((m) => Map<String, dynamic>.from(m))
+        .toList();
+    return items;
+  }
+
+  Future<bool> hasArrived({
+    required String eventId,
+    required String userId,
+  }) async {
+    if (eventId.isEmpty || userId.isEmpty) return false;
+    try {
+      final items = await getArrivals(eventId: eventId);
+      return items.any((it) => (it['userId'] ?? '').toString() == userId);
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> checkIn({
     required String eventId,
     required String userId,

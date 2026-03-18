@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 
+import '../checkin/checkin_service.dart';
+import '../lista_novios/novios_registry_service.dart';
 import '../solteros/solteros_service.dart';
 import '../solteros/solteros_provider.dart';
 import '../ui/app_theme.dart';
@@ -23,7 +26,11 @@ class EntryScreen extends StatefulWidget {
 class _EntryScreenState extends State<EntryScreen> {
   bool _nameDialogShown = false;
   bool _singleDialogShown = false;
+  bool _locationDialogShown = false;
   final SolterosService _solterosService = SolterosService();
+  final CheckinService _checkinService = CheckinService();
+  final NoviosRegistryService _registryService = NoviosRegistryService();
+  static const double _autoCheckinRadiusMeters = 250;
 
   void _maybeAskName(BuildContext context, UserContextProvider userContext) {
     final hasEvent = userContext.eventId != null && userContext.eventId!.isNotEmpty;
@@ -34,6 +41,130 @@ class _EntryScreenState extends State<EntryScreen> {
       if (!context.mounted) return;
       _showNameDialog(context, userContext);
     });
+  }
+
+  void _maybeAskLocation(BuildContext context, UserContextProvider userContext) {
+    final eventId = userContext.eventId ?? '';
+    final userId = userContext.userId ?? '';
+    if (eventId.isEmpty || userId.isEmpty) return;
+    if (_locationDialogShown) return;
+    if (userContext.locationPromptedForCurrentEvent) return;
+    if (userContext.autoCheckinDoneForCurrentEvent) return;
+
+    _locationDialogShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      () async {
+        // Si ya llegó (manual o por otra sesión), no molestamos con el prompt.
+        final alreadyArrived = await _checkinService.hasArrived(eventId: eventId, userId: userId);
+        if (!context.mounted) return;
+        if (alreadyArrived) {
+          await userContext.markAutoCheckinDoneForEvent(eventId);
+          await userContext.markLocationPromptedForEvent(eventId);
+          return;
+        }
+        await _showLocationDialog(context, userContext);
+      }();
+    });
+  }
+
+  Future<void> _showLocationDialog(BuildContext context, UserContextProvider userContext) async {
+    final eventId = userContext.eventId ?? '';
+    if (eventId.isEmpty) return;
+
+    // Marcamos como "ya preguntado" para no spamear cada vez que abre la app.
+    await userContext.markLocationPromptedForEvent(eventId);
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: const Text('Activa tu ubicación'),
+          content: const Text(
+            'Si activas la ubicación, la app puede marcar tu llegada automáticamente cuando estés cerca del evento.',
+          ),
+          actions: [
+            Row(
+              children: [
+                Expanded(
+                  child: CustomButton(
+                    label: 'Ahora no',
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.x1_5),
+                Expanded(
+                  child: CustomButton(
+                    label: 'Activar',
+                    icon: Icons.my_location,
+                    onPressed: () async {
+                      Navigator.of(ctx).pop();
+                      await _tryAutoCheckin(userContext);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _tryAutoCheckin(UserContextProvider userContext) async {
+    final eventId = userContext.eventId ?? '';
+    final userId = userContext.userId ?? '';
+    if (eventId.isEmpty || userId.isEmpty) return;
+    if (userContext.autoCheckinDoneForCurrentEvent) return;
+
+    try {
+      final alreadyArrived = await _checkinService.hasArrived(eventId: eventId, userId: userId);
+      if (alreadyArrived) {
+        await userContext.markAutoCheckinDoneForEvent(eventId);
+        return;
+      }
+
+      final location = await _registryService.getLocation(eventId);
+      final latitude = location?['latitude'];
+      final longitude = location?['longitude'];
+      if (latitude is! num || longitude is! num) return;
+
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      final distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        latitude.toDouble(),
+        longitude.toDouble(),
+      );
+      if (distance > _autoCheckinRadiusMeters) return;
+
+      final name = userContext.userName ?? 'Invitado';
+      await _checkinService.checkIn(eventId: eventId, userId: userId, name: name);
+      await userContext.markAutoCheckinDoneForEvent(eventId);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Llegada marcada automáticamente ✅')),
+      );
+    } catch (_) {
+      // Silencioso: no queremos bloquear el arranque por permisos/errores.
+    }
   }
 
   void _maybeAskSingle(BuildContext context, UserContextProvider userContext) {
@@ -236,6 +367,7 @@ class _EntryScreenState extends State<EntryScreen> {
     final disableTablesForEvent = eventId.toUpperCase() == 'CAROYNONI';
     _maybeAskName(context, userContext);
     _maybeAskSingle(context, userContext);
+    _maybeAskLocation(context, userContext);
 
     return Scaffold(
       appBar: AppBar(

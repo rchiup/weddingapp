@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dio/dio.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -24,7 +23,7 @@ class CheckinScreen extends StatefulWidget {
 class _CheckinScreenState extends State<CheckinScreen> {
   final CheckinService _service = CheckinService();
   final NoviosRegistryService _registryService = NoviosRegistryService();
-  static const double _autoCheckinRadiusMeters = 150;
+  static const double _autoCheckinRadiusMeters = 250;
   bool _loading = false;
   bool _done = false;
   bool _loadingArrivals = false;
@@ -37,7 +36,23 @@ class _CheckinScreenState extends State<CheckinScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadEventLocation());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _loadEventLocation();
+      await _syncAlreadyArrived();
+    });
+  }
+
+  Future<void> _syncAlreadyArrived() async {
+    final userContext = context.read<UserContextProvider>();
+    final eventId = userContext.eventId ?? '';
+    final userId = userContext.userId ?? '';
+    if (eventId.isEmpty || userId.isEmpty) return;
+    final arrived = await _service.hasArrived(eventId: eventId, userId: userId);
+    if (!mounted) return;
+    if (arrived) {
+      setState(() => _done = true);
+      await _loadArrivals();
+    }
   }
 
   String _formatArrivalTime(dynamic raw) {
@@ -188,19 +203,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
     if (eventId == null || eventId.isEmpty) return;
     setState(() => _loadingArrivals = true);
     try {
-      final uri = Uri.parse('https://weddingapp-c6ix.onrender.com').replace(
-        path: '/api/gallery/event/$eventId/arrivals',
-        queryParameters: _query.trim().isEmpty ? null : {'q': _query.trim()},
-      );
-      // usar Dio de CheckinService? mantenemos simple con Firestore? -> API con http
-      // Para evitar dependencias extra, usamos NetworkImage fetch indirecto? no. Usamos Dio via service:
-      final dio = Dio();
-      final res = await dio.get(uri.toString());
-      final data = res.data as Map<String, dynamic>? ?? {};
-      final items = (data['items'] as List<dynamic>? ?? [])
-          .whereType<Map>()
-          .map((m) => Map<String, dynamic>.from(m))
-          .toList();
+      final items = await _service.getArrivals(eventId: eventId, query: _query);
       if (mounted) {
         setState(() {
           _arrivals = items;
