@@ -90,7 +90,7 @@ class _EntryScreenState extends State<EntryScreen> {
         child: AlertDialog(
           title: const Text('Activa tu ubicación'),
           content: const Text(
-            'Activa la ubicación si quieres ver quién más ya llegó. También podremos marcar tu llegada automáticamente cuando estés cerca del evento.',
+            'Activa la ubicación si quieres ver quién más ya llegó.',
           ),
           actions: [
             Row(
