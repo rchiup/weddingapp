@@ -133,6 +133,26 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
     }
   }
 
+  Future<void> _downloadCurrentPhoto() async {
+    final url = widget.photo.url.trim();
+    if (url.isEmpty) return;
+    final safeId = widget.photo.id.isEmpty
+        ? DateTime.now().millisecondsSinceEpoch.toString()
+        : widget.photo.id;
+    try {
+      await downloadPhoto(url, suggestedFilename: 'foto_$safeId.jpg');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Descarga iniciada')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo descargar: $e')),
+      );
+    }
+  }
+
   Future<void> _playHeartPop() async {
     if (!mounted) return;
     setState(() => _showDoubleTapHeart = true);
@@ -168,12 +188,7 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
           IconButton(
             tooltip: 'Descargar',
             icon: const Icon(Icons.download_outlined),
-            onPressed: () async {
-              final url = widget.photo.url;
-              if (url.trim().isEmpty) return;
-              final safeId = widget.photo.id.isEmpty ? DateTime.now().millisecondsSinceEpoch.toString() : widget.photo.id;
-              await downloadPhoto(url, suggestedFilename: 'foto_$safeId.jpg');
-            },
+            onPressed: _downloadCurrentPhoto,
           ),
           if (userContext.isAdmin)
             IconButton(
@@ -314,6 +329,45 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                       ),
                       const SizedBox(width: AppSpacing.x1),
                       Text('likes', style: AppTextStyles.subtitle),
+                      const Spacer(),
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(999),
+                          onTap: _downloadCurrentPhoto,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.x1_5,
+                              vertical: AppSpacing.x1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: AppColors.primary.withOpacity(0.18),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.download_outlined,
+                                  size: 16,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Descargar',
+                                  style: AppTextStyles.subtitle.copyWith(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.x1),
