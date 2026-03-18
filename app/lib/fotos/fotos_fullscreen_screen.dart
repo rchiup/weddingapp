@@ -150,12 +150,15 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
   Widget build(BuildContext context) {
     final userContext = context.watch<UserContextProvider>();
     final userId = userContext.userId ?? '';
-    final userName = userContext.userName ?? 'Invitado';
+    final fallbackName = userContext.isAdmin ? 'Novios' : 'Invitado';
+    final userName = userContext.isAdmin
+        ? 'Novios'
+        : (userContext.userName ?? 'Invitado');
     final uploadedByName = widget.photo.uploadedBy == userId
-        ? (userName != 'Invitado' ? userName : 'Tú')
+        ? userName
         : (widget.photo.uploadedByName.isNotEmpty
             ? widget.photo.uploadedByName
-            : 'Invitado');
+            : fallbackName);
 
     return Scaffold(
       appBar: AppBar(
@@ -352,6 +355,7 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                           final dateStr = dt != null
                               ? '${dt.day}/${dt.month} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}'
                               : '';
+                          final commentName = (c['name'] ?? '').toString().trim();
                           return Padding(
                             padding: const EdgeInsets.only(bottom: AppSpacing.x1_5),
                             child: CustomCard(
@@ -360,7 +364,7 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '${c['name'] ?? 'Invitado'} · $dateStr',
+                                    '${commentName.isNotEmpty ? commentName : fallbackName} · $dateStr',
                                     style: AppTextStyles.subtitle.copyWith(fontSize: 12),
                                   ),
                                   const SizedBox(height: AppSpacing.x1),

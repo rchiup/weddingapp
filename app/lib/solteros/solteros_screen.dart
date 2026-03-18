@@ -113,7 +113,7 @@ class _SolterosListState extends State<_SolterosList> {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: AppSpacing.x1),
                       child: CustomCard(
-                        onTap: isMe ? null : () => context.go('/solteros/dm/${p.userId}'),
+                        onTap: isMe ? null : () => context.push('/solteros/dm/${p.userId}'),
                         padding: const EdgeInsets.all(AppSpacing.x1_5),
                         child: Row(
                           children: [

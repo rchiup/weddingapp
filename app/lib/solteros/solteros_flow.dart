@@ -52,9 +52,23 @@ class _SolterosFlowState extends State<SolterosFlow> {
         onTap: (index) => setState(() => _currentIndex = index),
         items: [
           BottomNavigationBarItem(
-            icon: Icon(
-              Icons.people_outline,
-              color: solterosState.hasUnreadDm ? AppColors.primary : null,
+            icon: Stack(
+              children: [
+                const Icon(Icons.people_outline),
+                if (solterosState.hasUnreadDm)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             label: 'Solteros',
           ),

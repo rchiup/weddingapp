@@ -91,7 +91,9 @@ class _FotosUploadScreenState extends State<FotosUploadScreen> {
                     await provider.uploadPhotos(
                       eventId: userContext.eventId ?? '',
                       userId: userContext.userId ?? '',
-                      userName: userContext.userName ?? 'Invitado',
+                      userName: userContext.isAdmin
+                          ? 'Novios'
+                          : (userContext.userName ?? 'Invitado'),
                       visibility: _onlyNovios ? 'novios' : 'public',
                       files: files,
                     );
