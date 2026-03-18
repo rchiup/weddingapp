@@ -153,6 +153,203 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
     }
   }
 
+  Widget _buildPhotoViewer({
+    required String userId,
+    required String userName,
+    double? maxHeight,
+  }) {
+    final imageCard = Container(
+      width: double.infinity,
+      constraints: BoxConstraints(
+        minHeight: 260,
+        if (maxHeight != null) maxHeight: maxHeight,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: AppRadii.card,
+        boxShadow: AppShadows.soft,
+        border: Border.all(color: AppColors.border),
+      ),
+      child: ClipRRect(
+        borderRadius: AppRadii.card,
+        child: Image.network(
+          widget.photo.url,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => const Center(
+            child: Icon(Icons.broken_image_outlined, size: 48),
+          ),
+        ),
+      ),
+    );
+
+    return InteractiveViewer(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onDoubleTap: () async {
+          await _playHeartPop();
+          await _toggleLike(userId: userId, userName: userName);
+        },
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            imageCard,
+            IgnorePointer(
+              child: AnimatedScale(
+                scale: _showDoubleTapHeart ? 1.0 : 0.6,
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutBack,
+                child: AnimatedOpacity(
+                  opacity: _showDoubleTapHeart ? 0.9 : 0.0,
+                  duration: const Duration(milliseconds: 180),
+                  child: const Icon(
+                    Icons.favorite,
+                    color: Colors.white,
+                    size: 120,
+                    shadows: [
+                      Shadow(
+                        blurRadius: 12,
+                        color: Colors.black38,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSocialCard({
+    required String uploadedByName,
+    required String userId,
+    required String userName,
+  }) {
+    return CustomCard(
+      padding: const EdgeInsets.all(AppSpacing.x2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Subido por: $uploadedByName', style: AppTextStyles.subtitle.copyWith(fontSize: 14)),
+          const SizedBox(height: AppSpacing.x1),
+          Row(
+            children: [
+              IconButton(
+                onPressed: () async => _toggleLike(userId: userId, userName: userName),
+                icon: Icon(
+                  (_initialIsLiked ?? false) ? Icons.favorite : Icons.favorite_border,
+                  color: (_initialIsLiked ?? false) ? Colors.red : AppColors.textPrimary.withOpacity(0.7),
+                ),
+                tooltip: (_initialIsLiked ?? false) ? 'Quitar like' : 'Me gusta',
+              ),
+              Text(
+                _initialLikeCount == null ? '—' : '$_initialLikeCount',
+                style: AppTextStyles.title.copyWith(fontSize: 16),
+              ),
+              const SizedBox(width: AppSpacing.x1),
+              Text('likes', style: AppTextStyles.subtitle),
+              const SizedBox(width: AppSpacing.x1),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.08),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.primary.withOpacity(0.18),
+                  ),
+                ),
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  tooltip: 'Descargar',
+                  onPressed: _downloadCurrentPhoto,
+                  icon: const Icon(
+                    Icons.arrow_downward_rounded,
+                    size: 16,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.x1),
+          Divider(color: AppColors.border.withOpacity(0.8)),
+          const SizedBox(height: AppSpacing.x1),
+          Text('Comentarios', style: AppTextStyles.title.copyWith(fontSize: 14)),
+          const SizedBox(height: AppSpacing.x1),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _commentController,
+                  decoration: const InputDecoration(
+                    hintText: 'Escribe un comentario...',
+                  ),
+                  maxLines: 1,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _submitComment(userId: userId, userName: userName),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.x1),
+              IconButton(
+                onPressed: () async => _submitComment(userId: userId, userName: userName),
+                icon: const Icon(Icons.send),
+                color: AppColors.primary,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommentsList(String fallbackName) {
+    if (_loadingComments) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_comments.isEmpty) {
+      return Center(child: Text('Sin comentarios', style: AppTextStyles.subtitle));
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2),
+      itemCount: _comments.length,
+      itemBuilder: (_, i) {
+        final c = _comments[i];
+        final ts = c['timestamp'];
+        DateTime? dt;
+        if (ts is String) {
+          dt = DateTime.tryParse(ts);
+        } else if (ts is Timestamp) {
+          dt = ts.toDate();
+        }
+        final dateStr = dt != null
+            ? '${dt.day}/${dt.month} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}'
+            : '';
+        final commentName = (c['name'] ?? '').toString().trim();
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.x1_5),
+          child: CustomCard(
+            padding: const EdgeInsets.all(AppSpacing.x1_5),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${commentName.isNotEmpty ? commentName : fallbackName} · $dateStr',
+                  style: AppTextStyles.subtitle.copyWith(fontSize: 12),
+                ),
+                const SizedBox(height: AppSpacing.x1),
+                Text('${c['message'] ?? ''}'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _playHeartPop() async {
     if (!mounted) return;
     setState(() => _showDoubleTapHeart = true);
@@ -180,6 +377,9 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
         : (widget.photo.uploadedByName.isNotEmpty
             ? widget.photo.uploadedByName
             : fallbackName);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isWide = screenWidth >= 900;
 
     return Scaffold(
       appBar: AppBar(
@@ -240,192 +440,69 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
             ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: Center(
-              child: InteractiveViewer(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onDoubleTap: () async {
-                    // animación tipo IG + toggle like
-                    await _playHeartPop();
-                    await _toggleLike(userId: userId, userName: userName);
-                  },
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.all(AppSpacing.x2),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: AppRadii.card,
-                          boxShadow: AppShadows.soft,
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: AppRadii.card,
-                          child: Image.network(
-                            widget.photo.url,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => const Center(
-                              child: Icon(Icons.broken_image_outlined, size: 48),
-                            ),
-                          ),
-                        ),
-                      ),
-                      IgnorePointer(
-                        child: AnimatedScale(
-                          scale: _showDoubleTapHeart ? 1.0 : 0.6,
-                          duration: const Duration(milliseconds: 180),
-                          curve: Curves.easeOutBack,
-                          child: AnimatedOpacity(
-                            opacity: _showDoubleTapHeart ? 0.9 : 0.0,
-                            duration: const Duration(milliseconds: 180),
-                            child: const Icon(
-                              Icons.favorite,
-                              color: Colors.white,
-                              size: 120,
-                              shadows: [
-                                Shadow(
-                                  blurRadius: 12,
-                                  color: Colors.black38,
-                                  offset: Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.x2, 0, AppSpacing.x2, AppSpacing.x2),
-            child: CustomCard(
+      body: isWide
+          ? Padding(
               padding: const EdgeInsets.all(AppSpacing.x2),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Subido por: $uploadedByName', style: AppTextStyles.subtitle.copyWith(fontSize: 14)),
-                  const SizedBox(height: AppSpacing.x1),
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: () async => _toggleLike(userId: userId, userName: userName),
-                        icon: Icon(
-                          (_initialIsLiked ?? false) ? Icons.favorite : Icons.favorite_border,
-                          color: (_initialIsLiked ?? false) ? Colors.red : AppColors.textPrimary.withOpacity(0.7),
-                        ),
-                        tooltip: (_initialIsLiked ?? false) ? 'Quitar like' : 'Me gusta',
+                  Expanded(
+                    flex: 6,
+                    child: Center(
+                      child: _buildPhotoViewer(
+                        userId: userId,
+                        userName: userName,
+                        maxHeight: screenHeight - 140,
                       ),
-                      Text(
-                        _initialLikeCount == null ? '—' : '$_initialLikeCount',
-                        style: AppTextStyles.title.copyWith(fontSize: 16),
-                      ),
-                      const SizedBox(width: AppSpacing.x1),
-                      Text('likes', style: AppTextStyles.subtitle),
-                      const SizedBox(width: AppSpacing.x1),
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.08),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.primary.withOpacity(0.18),
-                          ),
-                        ),
-                        child: IconButton(
-                          padding: EdgeInsets.zero,
-                          tooltip: 'Descargar',
-                          onPressed: _downloadCurrentPhoto,
-                          icon: const Icon(
-                            Icons.arrow_downward_rounded,
-                            size: 16,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: AppSpacing.x1),
-                  Divider(color: AppColors.border.withOpacity(0.8)),
-                  const SizedBox(height: AppSpacing.x1),
-                  Text('Comentarios', style: AppTextStyles.title.copyWith(fontSize: 14)),
-                  const SizedBox(height: AppSpacing.x1),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _commentController,
-                          decoration: const InputDecoration(
-                            hintText: 'Escribe un comentario...',
-                          ),
-                          maxLines: 1,
-                          textInputAction: TextInputAction.send,
-                          onSubmitted: (_) => _submitComment(userId: userId, userName: userName),
+                  const SizedBox(width: AppSpacing.x2),
+                  Expanded(
+                    flex: 5,
+                    child: Column(
+                      children: [
+                        _buildSocialCard(
+                          uploadedByName: uploadedByName,
+                          userId: userId,
+                          userName: userName,
                         ),
-                      ),
-                      const SizedBox(width: AppSpacing.x1),
-                      IconButton(
-                        onPressed: () async => _submitComment(userId: userId, userName: userName),
-                        icon: const Icon(Icons.send),
-                        color: AppColors.primary,
-                      ),
-                    ],
+                        const SizedBox(height: AppSpacing.x2),
+                        Expanded(child: _buildCommentsList(fallbackName)),
+                      ],
+                    ),
                   ),
                 ],
               ),
-            ),
-          ),
-          Expanded(
-            child: _loadingComments
-                ? const Center(child: CircularProgressIndicator())
-                : _comments.isEmpty
-                    ? Center(child: Text('Sin comentarios', style: AppTextStyles.subtitle))
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2),
-                        itemCount: _comments.length,
-                        itemBuilder: (_, i) {
-                          final c = _comments[i];
-                          final ts = c['timestamp'];
-                          DateTime? dt;
-                          if (ts is String) {
-                            dt = DateTime.tryParse(ts);
-                          } else if (ts is Timestamp) {
-                            dt = ts.toDate();
-                          }
-                          final dateStr = dt != null
-                              ? '${dt.day}/${dt.month} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}'
-                              : '';
-                          final commentName = (c['name'] ?? '').toString().trim();
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.x1_5),
-                            child: CustomCard(
-                              padding: const EdgeInsets.all(AppSpacing.x1_5),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${commentName.isNotEmpty ? commentName : fallbackName} · $dateStr',
-                                    style: AppTextStyles.subtitle.copyWith(fontSize: 12),
-                                  ),
-                                  const SizedBox(height: AppSpacing.x1),
-                                  Text('${c['message'] ?? ''}'),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
+            )
+          : Column(
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.x2, AppSpacing.x2, AppSpacing.x2, AppSpacing.x1),
+                    child: Center(
+                      child: _buildPhotoViewer(
+                        userId: userId,
+                        userName: userName,
+                        maxHeight: screenHeight * 0.48,
                       ),
-          ),
-        ],
-      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.x2, 0, AppSpacing.x2, AppSpacing.x2),
+                  child: _buildSocialCard(
+                    uploadedByName: uploadedByName,
+                    userId: userId,
+                    userName: userName,
+                  ),
+                ),
+                Expanded(
+                  flex: 4,
+                  child: _buildCommentsList(fallbackName),
+                ),
+              ],
+            ),
     );
   }
 }
