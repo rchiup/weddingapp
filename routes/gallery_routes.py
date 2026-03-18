@@ -7,10 +7,13 @@ subir, listar, eliminar fotos.
 """
 
 from flask import Blueprint, request, jsonify
+import json
 import os
 import tempfile
 import uuid
 from datetime import datetime, timezone
+from urllib.parse import quote_plus
+from urllib.request import Request, urlopen
 
 from services.firebase_service import FirebaseService
 
@@ -640,5 +643,56 @@ def set_event_location(event_id):
                 'wazeUrl': payload['wazeUrl'],
             }
         }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@gallery_bp.route('/geocode', methods=['GET'])
+def geocode_location():
+    """
+    Busca lugares por texto usando Nominatim (OpenStreetMap).
+
+    Query params:
+      q: texto a buscar
+      limit: cantidad de resultados (opcional)
+    """
+    query = (request.args.get('q') or '').strip()
+    limit_raw = (request.args.get('limit') or '5').strip()
+
+    if not query:
+        return jsonify({'error': 'q requerido'}), 400
+
+    try:
+        limit = max(1, min(int(limit_raw), 10))
+    except ValueError:
+        limit = 5
+
+    try:
+        url = (
+            'https://nominatim.openstreetmap.org/search'
+            f'?format=jsonv2&limit={limit}&q={quote_plus(query)}'
+        )
+        req = Request(
+            url,
+            headers={
+                'User-Agent': 'wedding-app/1.0',
+                'Accept': 'application/json',
+            },
+        )
+        with urlopen(req, timeout=10) as response:
+            payload = json.loads(response.read().decode('utf-8'))
+
+        items = []
+        for item in payload[:limit]:
+            try:
+                items.append({
+                    'label': item.get('display_name', ''),
+                    'latitude': float(item.get('lat')),
+                    'longitude': float(item.get('lon')),
+                })
+            except Exception:
+                continue
+
+        return jsonify({'items': items}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
