@@ -46,6 +46,35 @@ def _thread_id(a: str, b: str) -> str:
     return f"{a}_{b}" if a < b else f"{b}_{a}"
 
 
+def _dm_doc(event_id: str, a: str, b: str):
+    return (
+        firebase_service.db
+        .collection("events")
+        .document(event_id)
+        .collection("singles_dm")
+        .document(_thread_id(a, b))
+    )
+
+
+def _global_chat_doc(event_id: str):
+    return (
+        firebase_service.db
+        .collection("events")
+        .document(event_id)
+        .collection("singles_chat")
+        .document("global")
+    )
+
+
+def _single_name(event_id: str, user_id: str, fallback: str = "Invitado") -> str:
+    try:
+        snap = _singles_doc(event_id, user_id).get()
+        data = snap.to_dict() or {}
+        return (data.get("name") or "").strip() or fallback
+    except Exception:
+        return fallback
+
+
 @solteros_bp.route("/event/<event_id>/activate", methods=["POST"])
 def activate_single(event_id):
     data = request.get_json(silent=True) or {}
@@ -156,15 +185,8 @@ def post_global_chat_message(event_id):
         return jsonify({"error": "Solo disponible para solteros"}), 403
 
     try:
-        ref = (
-            firebase_service.db
-            .collection("events")
-            .document(event_id)
-            .collection("singles_chat")
-            .document("global")
-            .collection("messages")
-            .document()
-        )
+        chat_doc = _global_chat_doc(event_id)
+        ref = chat_doc.collection("messages").document()
         now = _now_iso()
         ref.set({
             "userId": viewer_id,
@@ -172,7 +194,82 @@ def post_global_chat_message(event_id):
             "text": text,
             "createdAt": now,
         })
+        chat_doc.set({
+            "lastMessage": text,
+            "lastMessageAt": now,
+            "lastSenderId": viewer_id,
+            "lastReadAt": {
+                viewer_id: now,
+            },
+        }, merge=True)
         return jsonify({"ok": True, "id": ref.id, "createdAt": now}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@solteros_bp.route("/event/<event_id>/chat/status", methods=["GET"])
+def get_global_chat_status(event_id):
+    viewer_id = (request.args.get("viewerId") or "").strip()
+
+    if not event_id:
+        return jsonify({"error": "eventId requerido"}), 400
+    if not _require_single(event_id, viewer_id):
+        return jsonify({"error": "Solo disponible para solteros"}), 403
+
+    try:
+        snap = _global_chat_doc(event_id).get()
+        data = snap.to_dict() or {}
+        last_message = (data.get("lastMessage") or "").strip()
+        last_message_at = (data.get("lastMessageAt") or "").strip()
+        last_sender_id = (data.get("lastSenderId") or "").strip()
+        last_read_map = data.get("lastReadAt") or {}
+        viewer_last_read = (last_read_map.get(viewer_id) or "").strip() if isinstance(last_read_map, dict) else ""
+        if not last_message_at or not last_message:
+            raw = []
+            for doc in _global_chat_doc(event_id).collection("messages").stream():
+                msg_data = doc.to_dict() or {}
+                raw.append({
+                    "text": (msg_data.get("text") or "").strip(),
+                    "createdAt": (msg_data.get("createdAt") or "").strip(),
+                    "userId": (msg_data.get("userId") or "").strip(),
+                })
+            raw.sort(key=lambda x: x.get("createdAt") or "")
+            if raw:
+                last = raw[-1]
+                last_message = last_message or last.get("text") or ""
+                last_message_at = last_message_at or last.get("createdAt") or ""
+                last_sender_id = last_sender_id or last.get("userId") or ""
+        unread = bool(last_message_at and last_sender_id and last_sender_id != viewer_id and last_message_at > viewer_last_read)
+        return jsonify({
+            "lastMessage": last_message,
+            "lastMessageAt": last_message_at,
+            "unreadCount": 1 if unread else 0,
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@solteros_bp.route("/event/<event_id>/chat/read", methods=["POST"])
+def mark_global_chat_read(event_id):
+    data = request.get_json(silent=True) or {}
+    viewer_id = (data.get("viewerId") or "").strip()
+
+    if not event_id or not viewer_id:
+        return jsonify({"error": "eventId y viewerId son requeridos"}), 400
+    if not _require_single(event_id, viewer_id):
+        return jsonify({"error": "Solo disponible para solteros"}), 403
+
+    try:
+        chat_doc = _global_chat_doc(event_id)
+        snap = chat_doc.get()
+        base = snap.to_dict() or {}
+        mark_at = (base.get("lastMessageAt") or "").strip() or _now_iso()
+        chat_doc.set({
+            "lastReadAt": {
+                viewer_id: mark_at,
+            },
+        }, merge=True)
+        return jsonify({"ok": True, "readAt": mark_at}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -192,15 +289,7 @@ def get_dm_messages(event_id, other_user_id):
         return jsonify({"error": "El usuario no está en modo soltero"}), 403
 
     try:
-        tid = _thread_id(viewer_id, other_user_id)
-        ref = (
-            firebase_service.db
-            .collection("events")
-            .document(event_id)
-            .collection("singles_dm")
-            .document(tid)
-            .collection("messages")
-        )
+        ref = _dm_doc(event_id, viewer_id, other_user_id).collection("messages")
         raw = []
         for doc in ref.stream():
             data = doc.to_dict() or {}
@@ -235,16 +324,8 @@ def post_dm_message(event_id, other_user_id):
         return jsonify({"error": "El usuario no está en modo soltero"}), 403
 
     try:
-        tid = _thread_id(viewer_id, other_user_id)
-        ref = (
-            firebase_service.db
-            .collection("events")
-            .document(event_id)
-            .collection("singles_dm")
-            .document(tid)
-            .collection("messages")
-            .document()
-        )
+        thread_doc = _dm_doc(event_id, viewer_id, other_user_id)
+        ref = thread_doc.collection("messages").document()
         now = _now_iso()
         ref.set({
             "userId": viewer_id,
@@ -252,7 +333,115 @@ def post_dm_message(event_id, other_user_id):
             "text": text,
             "createdAt": now,
         })
+        thread_doc.set({
+            "participantIds": [viewer_id, other_user_id],
+            "participantNames": {
+                viewer_id: name,
+                other_user_id: _single_name(event_id, other_user_id),
+            },
+            "lastMessage": text,
+            "lastMessageAt": now,
+            "lastSenderId": viewer_id,
+            "lastReadAt": {
+                viewer_id: now,
+            },
+        }, merge=True)
         return jsonify({"ok": True, "id": ref.id, "createdAt": now}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@solteros_bp.route("/event/<event_id>/dm/<other_user_id>/read", methods=["POST"])
+def mark_dm_read(event_id, other_user_id):
+    data = request.get_json(silent=True) or {}
+    viewer_id = (data.get("viewerId") or "").strip()
+
+    if not event_id or not other_user_id or not viewer_id:
+        return jsonify({"error": "eventId, otherUserId y viewerId son requeridos"}), 400
+    if not _require_single(event_id, viewer_id):
+        return jsonify({"error": "Solo disponible para solteros"}), 403
+    if not _require_single(event_id, other_user_id):
+        return jsonify({"error": "El usuario no está en modo soltero"}), 403
+
+    try:
+        thread_doc = _dm_doc(event_id, viewer_id, other_user_id)
+        snap = thread_doc.get()
+        base = snap.to_dict() or {}
+        mark_at = (base.get("lastMessageAt") or "").strip() or _now_iso()
+        thread_doc.set({
+            "lastReadAt": {
+                viewer_id: mark_at,
+            },
+        }, merge=True)
+        return jsonify({"ok": True, "readAt": mark_at}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@solteros_bp.route("/event/<event_id>/conversations", methods=["GET"])
+def get_dm_conversations(event_id):
+    viewer_id = (request.args.get("viewerId") or "").strip()
+
+    if not event_id:
+        return jsonify({"error": "eventId requerido"}), 400
+    if not _require_single(event_id, viewer_id):
+        return jsonify({"error": "Solo disponible para solteros"}), 403
+
+    try:
+        ref = (
+            firebase_service.db
+            .collection("events")
+            .document(event_id)
+            .collection("singles_dm")
+        )
+        items = []
+        for doc in ref.stream():
+            data = doc.to_dict() or {}
+            participant_ids = [str(x).strip() for x in (data.get("participantIds") or []) if str(x).strip()]
+            if not participant_ids and "_" in doc.id:
+                participant_ids = [part.strip() for part in doc.id.split("_") if part.strip()]
+            if viewer_id not in participant_ids:
+                continue
+            other_user_id = next((uid for uid in participant_ids if uid != viewer_id), "")
+            if not other_user_id:
+                continue
+            participant_names = data.get("participantNames") or {}
+            other_name = ""
+            if isinstance(participant_names, dict):
+                other_name = (participant_names.get(other_user_id) or "").strip()
+            other_name = other_name or _single_name(event_id, other_user_id)
+            last_message_at = (data.get("lastMessageAt") or "").strip()
+            last_message = (data.get("lastMessage") or "").strip()
+            last_sender_id = (data.get("lastSenderId") or "").strip()
+            last_read_map = data.get("lastReadAt") or {}
+            viewer_last_read = (last_read_map.get(viewer_id) or "").strip() if isinstance(last_read_map, dict) else ""
+            if not last_message_at or not last_message:
+                raw = []
+                for msg_doc in doc.reference.collection("messages").stream():
+                    msg_data = msg_doc.to_dict() or {}
+                    raw.append({
+                        "text": (msg_data.get("text") or "").strip(),
+                        "createdAt": (msg_data.get("createdAt") or "").strip(),
+                        "userId": (msg_data.get("userId") or "").strip(),
+                    })
+                raw.sort(key=lambda x: x.get("createdAt") or "")
+                if raw:
+                    last = raw[-1]
+                    last_message = last_message or last.get("text") or ""
+                    last_message_at = last_message_at or last.get("createdAt") or ""
+                    last_sender_id = last_sender_id or last.get("userId") or ""
+            unread = bool(last_message_at and last_sender_id and last_sender_id != viewer_id and last_message_at > viewer_last_read)
+            items.append({
+                "threadId": doc.id,
+                "otherUserId": other_user_id,
+                "otherName": other_name or "Invitado",
+                "lastMessage": last_message,
+                "lastMessageAt": last_message_at,
+                "unreadCount": 1 if unread else 0,
+            })
+
+        items.sort(key=lambda x: x.get("lastMessageAt") or "", reverse=True)
+        return jsonify({"items": items}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
