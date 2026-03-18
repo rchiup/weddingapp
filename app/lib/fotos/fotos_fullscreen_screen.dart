@@ -7,6 +7,7 @@ import '../ui/app_theme.dart';
 import '../ui/custom_button.dart';
 import '../ui/custom_card.dart';
 import 'foto_model.dart';
+import 'fotos_download.dart';
 import 'fotos_repository.dart';
 import 'fotos_social_service.dart';
 
@@ -164,6 +165,16 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
       appBar: AppBar(
         title: const Text('Foto'),
         actions: [
+          IconButton(
+            tooltip: 'Descargar',
+            icon: const Icon(Icons.download_outlined),
+            onPressed: () async {
+              final url = widget.photo.url;
+              if (url.trim().isEmpty) return;
+              final safeId = widget.photo.id.isEmpty ? DateTime.now().millisecondsSinceEpoch.toString() : widget.photo.id;
+              await downloadPhoto(url, suggestedFilename: 'foto_$safeId.jpg');
+            },
+          ),
           if (userContext.isAdmin)
             IconButton(
               tooltip: 'Eliminar foto',

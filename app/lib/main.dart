@@ -9,7 +9,6 @@ import 'firebase_options.dart';
 import 'solteros/solteros_provider.dart';
 import 'ui/app_theme.dart';
 import 'user_context/user_context_provider.dart';
-import 'utils/qa_config.dart';
 import 'utils/router.dart';
 
 /// Punto de entrada principal de la aplicación
@@ -50,7 +49,14 @@ class WeddingApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: userContext),
-        ChangeNotifierProvider(create: (_) => SolterosProvider()),
+        ChangeNotifierProxyProvider<UserContextProvider, SolterosProvider>(
+          create: (_) => SolterosProvider(),
+          update: (_, userContext, solteros) {
+            final provider = solteros ?? SolterosProvider();
+            provider.updateContext(userContext);
+            return provider;
+          },
+        ),
       ],
       child: MaterialApp.router(
         title: 'Wedding App',

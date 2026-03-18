@@ -81,6 +81,7 @@ class _EntryScreenState extends State<EntryScreen> {
 
     // Marcamos como "ya preguntado" para no spamear cada vez que abre la app.
     await userContext.markLocationPromptedForEvent(eventId);
+    if (!context.mounted) return;
 
     await showDialog<void>(
       context: context,
@@ -150,9 +151,7 @@ class _EntryScreenState extends State<EntryScreen> {
         return;
       }
 
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
+      final position = await Geolocator.getCurrentPosition();
       final distance = Geolocator.distanceBetween(
         position.latitude,
         position.longitude,
@@ -451,11 +450,11 @@ class _EntryScreenState extends State<EntryScreen> {
                   builder: (context, solteros, _) {
                     return _EntryCard(
                       title: '💘 Solteros',
-                      subtitle: 'Chat y lista de solteros del evento',
+                      subtitle: 'Lista, chats y foro de solteros del evento',
                       icon: Icons.favorite_border,
-                      onTap: () => context.go('/solteros'),
+                      onTap: () => context.go('/solteros/chats'),
                       enabled: true,
-                      showBadge: solteros.hasUnreadDm,
+                      showBadge: solteros.hasAnyUnread,
                     );
                   },
                 ),

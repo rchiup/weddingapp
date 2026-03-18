@@ -24,18 +24,43 @@ class _SolterosDmScreenState extends State<SolterosDmScreen> {
 
   Timer? _timer;
   bool _loading = false;
+  bool _sending = false;
+  DateTime? _lastSendAt;
+  String? _lastSentText;
   List<SolterosMessage> _messages = [];
   String? _lastCreatedAt;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh(initial: true));
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _markRead();
+      await _refresh(initial: true);
+    });
     _timer = Timer.periodic(const Duration(seconds: 3), (_) => _refresh());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<SolterosProvider>().clearDmUnread();
     });
+  }
+
+  Future<void> _markRead() async {
+    final ctx = context.read<UserContextProvider>();
+    final eventId = ctx.eventId ?? '';
+    final viewerId = ctx.userId ?? '';
+    if (eventId.isEmpty || viewerId.isEmpty || widget.otherUserId.isEmpty) return;
+    try {
+      await _service.markDmRead(
+        eventId: eventId,
+        viewerId: viewerId,
+        otherUserId: widget.otherUserId,
+      );
+      if (!mounted) return;
+      context.read<SolterosProvider>().clearDmUnread();
+      await context.read<SolterosProvider>().refreshStatus();
+    } catch (_) {
+      // Silencioso.
+    }
   }
 
   @override
@@ -64,16 +89,14 @@ class _SolterosDmScreenState extends State<SolterosDmScreen> {
       if (!mounted) return;
       if (items.isEmpty) return;
       final hadMessages = _messages.isNotEmpty;
+      final viewer = viewerId;
+      final hasForeign = items.any((m) => m.userId != viewer);
       setState(() {
         _messages = [..._messages, ...items];
         _lastCreatedAt = _messages.isNotEmpty ? _messages.last.createdAt : _lastCreatedAt;
       });
-      if (!initial || hadMessages) {
-        final viewer = viewerId;
-        final hasForeign = items.any((m) => m.userId != viewer);
-        if (hasForeign) {
-          context.read<SolterosProvider>().markDmUnread();
-        }
+      if ((!initial || hadMessages) && hasForeign) {
+        await _markRead();
       }
       await Future<void>.delayed(const Duration(milliseconds: 50));
       if (!mounted) return;
@@ -94,12 +117,23 @@ class _SolterosDmScreenState extends State<SolterosDmScreen> {
   Future<void> _send() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+    if (_sending) return;
+    final now = DateTime.now();
+    if (_lastSendAt != null &&
+        _lastSentText != null &&
+        _lastSentText == text &&
+        now.difference(_lastSendAt!).inMilliseconds < 900) {
+      return;
+    }
     final ctx = context.read<UserContextProvider>();
     final eventId = ctx.eventId ?? '';
     final viewerId = ctx.userId ?? '';
     final name = (ctx.userName ?? 'Invitado').trim();
     if (eventId.isEmpty || viewerId.isEmpty) return;
 
+    _sending = true;
+    _lastSendAt = now;
+    _lastSentText = text;
     _controller.clear();
 
     final optimistic = SolterosMessage(
@@ -123,11 +157,16 @@ class _SolterosDmScreenState extends State<SolterosDmScreen> {
         text: text,
       );
       await _refresh();
+      if (mounted) {
+        await context.read<SolterosProvider>().refreshStatus();
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('No se pudo enviar: $e')),
       );
+    } finally {
+      _sending = false;
     }
   }
 
@@ -194,12 +233,14 @@ class _SolterosDmScreenState extends State<SolterosDmScreen> {
                         hintText: 'Escribe un mensaje...',
                       ),
                       textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _send(),
+                      onSubmitted: (_) {
+                        if (!_sending) _send();
+                      },
                     ),
                   ),
                 const SizedBox(width: AppSpacing.x1),
                   IconButton(
-                    onPressed: _send,
+                    onPressed: _sending ? null : _send,
                     icon: const Icon(Icons.send),
                     tooltip: 'Enviar',
                   color: AppColors.primary,

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../ui/app_theme.dart';
+import 'solteros_conversations_screen.dart';
 import 'solteros_provider.dart';
 import 'solteros_screen.dart';
 import 'solteros_chat_screen.dart';
@@ -26,7 +27,7 @@ class _SolterosFlowState extends State<SolterosFlow> {
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex.clamp(0, 1);
+    _currentIndex = widget.initialIndex.clamp(0, 2);
   }
 
   @override
@@ -34,6 +35,7 @@ class _SolterosFlowState extends State<SolterosFlow> {
     final solterosState = context.watch<SolterosProvider>();
     final screens = [
       const SolterosScreen(),
+      const SolterosConversationsScreen(),
       const SolterosChatScreen(),
     ];
 
@@ -52,9 +54,13 @@ class _SolterosFlowState extends State<SolterosFlow> {
         onTap: (index) => setState(() => _currentIndex = index),
         items: [
           BottomNavigationBarItem(
+            icon: const Icon(Icons.people_outline),
+            label: 'Lista',
+          ),
+          BottomNavigationBarItem(
             icon: Stack(
               children: [
-                const Icon(Icons.people_outline),
+                const Icon(Icons.forum_outlined),
                 if (solterosState.hasUnreadDm)
                   Positioned(
                     right: 0,
@@ -70,7 +76,7 @@ class _SolterosFlowState extends State<SolterosFlow> {
                   ),
               ],
             ),
-            label: 'Solteros',
+            label: 'Chats',
           ),
           BottomNavigationBarItem(
             icon: Stack(
@@ -91,7 +97,7 @@ class _SolterosFlowState extends State<SolterosFlow> {
                   ),
               ],
             ),
-            label: 'Chat',
+            label: 'Foro',
           ),
         ],
       ),

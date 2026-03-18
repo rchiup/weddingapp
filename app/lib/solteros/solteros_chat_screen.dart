@@ -22,19 +22,40 @@ class _SolterosChatScreenState extends State<SolterosChatScreen> {
 
   Timer? _timer;
   bool _loading = false;
+  bool _sending = false;
+  DateTime? _lastSendAt;
+  String? _lastSentText;
   List<SolterosMessage> _messages = [];
   String? _lastCreatedAt;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh(initial: true));
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _markRead();
+      await _refresh(initial: true);
+    });
     _timer = Timer.periodic(const Duration(seconds: 3), (_) => _refresh());
     // Al abrir el chat global, limpiamos el indicador de pendientes.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<SolterosProvider>().clearGlobalUnread();
     });
+  }
+
+  Future<void> _markRead() async {
+    final ctx = context.read<UserContextProvider>();
+    final eventId = ctx.eventId ?? '';
+    final viewerId = ctx.userId ?? '';
+    if (eventId.isEmpty || viewerId.isEmpty) return;
+    try {
+      await _service.markGlobalRead(eventId: eventId, viewerId: viewerId);
+      if (!mounted) return;
+      context.read<SolterosProvider>().clearGlobalUnread();
+      await context.read<SolterosProvider>().refreshStatus();
+    } catch (_) {
+      // Silencioso.
+    }
   }
 
   @override
@@ -62,18 +83,14 @@ class _SolterosChatScreenState extends State<SolterosChatScreen> {
       if (!mounted) return;
       if (items.isEmpty) return;
       final hadMessages = _messages.isNotEmpty;
+      final viewer = viewerId;
+      final hasForeign = items.any((m) => m.userId != viewer);
       setState(() {
         _messages = [..._messages, ...items];
         _lastCreatedAt = _messages.isNotEmpty ? _messages.last.createdAt : _lastCreatedAt;
       });
-      // Si llegaron mensajes nuevos y alguno no es mío, marcamos como no leído
-      // (cuando no estamos ya dentro del chat se verá en el menú).
-      if (!initial || hadMessages) {
-        final viewer = viewerId;
-        final hasForeign = items.any((m) => m.userId != viewer);
-        if (hasForeign) {
-          context.read<SolterosProvider>().markGlobalUnread();
-        }
+      if ((!initial || hadMessages) && hasForeign) {
+        await _markRead();
       }
       await Future<void>.delayed(const Duration(milliseconds: 50));
       if (!mounted) return;
@@ -94,12 +111,23 @@ class _SolterosChatScreenState extends State<SolterosChatScreen> {
   Future<void> _send() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+    if (_sending) return;
+    final now = DateTime.now();
+    if (_lastSendAt != null &&
+        _lastSentText != null &&
+        _lastSentText == text &&
+        now.difference(_lastSendAt!).inMilliseconds < 900) {
+      return;
+    }
     final ctx = context.read<UserContextProvider>();
     final eventId = ctx.eventId ?? '';
     final viewerId = ctx.userId ?? '';
     final name = (ctx.userName ?? 'Invitado').trim();
     if (eventId.isEmpty || viewerId.isEmpty) return;
 
+    _sending = true;
+    _lastSendAt = now;
+    _lastSentText = text;
     _controller.clear();
 
     // Optimistic
@@ -123,11 +151,16 @@ class _SolterosChatScreenState extends State<SolterosChatScreen> {
         text: text,
       );
       await _refresh();
+      if (mounted) {
+        await context.read<SolterosProvider>().refreshStatus();
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('No se pudo enviar: $e')),
       );
+    } finally {
+      _sending = false;
     }
   }
 
@@ -184,12 +217,14 @@ class _SolterosChatScreenState extends State<SolterosChatScreen> {
                     controller: _controller,
                     decoration: const InputDecoration(hintText: 'Escribe un mensaje...'),
                     textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _send(),
+                    onSubmitted: (_) {
+                      if (!_sending) _send();
+                    },
                   ),
                 ),
                 const SizedBox(width: AppSpacing.x1),
                 IconButton(
-                  onPressed: _send,
+                  onPressed: _sending ? null : _send,
                   icon: const Icon(Icons.send),
                   tooltip: 'Enviar',
                   color: AppColors.primary,

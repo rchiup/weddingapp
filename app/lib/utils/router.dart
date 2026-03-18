@@ -57,9 +57,14 @@ class AppRouter {
           builder: (context, state) => const SolterosFlow(initialIndex: 0),
         ),
         GoRoute(
+          path: '/solteros/chats',
+          name: 'solteros_chats',
+          builder: (context, state) => const SolterosFlow(initialIndex: 1),
+        ),
+        GoRoute(
           path: '/solteros/chat',
           name: 'solteros_chat',
-          builder: (context, state) => const SolterosFlow(initialIndex: 1),
+          builder: (context, state) => const SolterosFlow(initialIndex: 2),
         ),
         GoRoute(
           path: '/solteros/dm/:otherUserId',
