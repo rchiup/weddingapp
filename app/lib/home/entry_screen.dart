@@ -46,7 +46,14 @@ class _EntryScreenState extends State<EntryScreen> {
   void _maybeAskLocation(BuildContext context, UserContextProvider userContext) {
     final eventId = userContext.eventId ?? '';
     final userId = userContext.userId ?? '';
+    final hasName = (userContext.userName ?? '').trim().isNotEmpty;
+    final singleDecided = userContext.isSingleForCurrentEvent || userContext.declinedSingleForCurrentEvent;
+    // Admins (novios) no pasan por nombre/solteros, así que pueden ver el prompt directo.
     if (eventId.isEmpty || userId.isEmpty) return;
+    if (!userContext.isAdmin) {
+      if (!hasName) return;
+      if (!singleDecided) return;
+    }
     if (_locationDialogShown) return;
     if (userContext.locationPromptedForCurrentEvent) return;
     if (userContext.autoCheckinDoneForCurrentEvent) return;
@@ -83,7 +90,7 @@ class _EntryScreenState extends State<EntryScreen> {
         child: AlertDialog(
           title: const Text('Activa tu ubicación'),
           content: const Text(
-            'Si activas la ubicación, la app puede marcar tu llegada automáticamente cuando estés cerca del evento.',
+            'Activa la ubicación si quieres ver quién más ya llegó. También podremos marcar tu llegada automáticamente cuando estés cerca del evento.',
           ),
           actions: [
             Row(
@@ -293,11 +300,13 @@ class _EntryScreenState extends State<EntryScreen> {
     if (!context.mounted) return;
     if (isSingle != true) {
       await userContext.declineSingleForEvent(eventId);
+      if (context.mounted) _maybeAskLocation(context, userContext);
       return;
     }
 
     // Segunda pantalla: decidir si quiere aparecer en la lista de solteros.
     await _showSingleListDialog(context, userContext);
+    if (context.mounted) _maybeAskLocation(context, userContext);
   }
 
   Future<void> _showSingleListDialog(
@@ -348,6 +357,7 @@ class _EntryScreenState extends State<EntryScreen> {
     if (joinList != true) {
       // No quiere aparecer ni que se le vuelva a preguntar.
       await userContext.declineSingleForEvent(eventId);
+      if (context.mounted) _maybeAskLocation(context, userContext);
       return;
     }
 
@@ -357,6 +367,7 @@ class _EntryScreenState extends State<EntryScreen> {
     } catch (_) {
       // Silencioso para demo.
     }
+    if (context.mounted) _maybeAskLocation(context, userContext);
   }
 
   @override
