@@ -30,6 +30,22 @@ def _is_valid_registry_url(url: str) -> bool:
     return u.startswith('http://') or u.startswith('https://')
 
 
+def _waze_url(latitude: float, longitude: float) -> str:
+    return f'https://waze.com/ul?ll={latitude:.6f},{longitude:.6f}&navigate=yes'
+
+
+def _parse_coordinate(value, field_name: str) -> float:
+    try:
+        parsed = float(str(value).strip())
+    except Exception as exc:
+        raise ValueError(f'{field_name} inválida') from exc
+    if field_name == 'latitude' and not (-90.0 <= parsed <= 90.0):
+        raise ValueError('latitude fuera de rango')
+    if field_name == 'longitude' and not (-180.0 <= parsed <= 180.0):
+        raise ValueError('longitude fuera de rango')
+    return parsed
+
+
 @gallery_bp.route('/<event_id>/photos', methods=['GET'])
 def get_photos(event_id):
     try:
@@ -530,5 +546,99 @@ def set_event_registry(event_id):
             'updatedAt': datetime.now(timezone.utc).isoformat(),
         }, merge=True)
         return jsonify({'ok': True}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@gallery_bp.route('/event/<event_id>/location', methods=['GET'])
+def get_event_location(event_id):
+    """
+    Devuelve la ubicación del evento para "Cómo llegar".
+
+    Lee desde:
+      events/{eventId}/settings/public
+    """
+    if not event_id:
+        return jsonify({'error': 'eventId requerido'}), 400
+
+    try:
+        doc = (
+            firebase_service.db
+            .collection('events')
+            .document(event_id)
+            .collection('settings')
+            .document('public')
+            .get()
+        )
+        data = doc.to_dict() or {}
+        latitude = data.get('venueLatitude')
+        longitude = data.get('venueLongitude')
+        label = (data.get('venueLabel') or '').strip()
+        if latitude is None or longitude is None:
+            return jsonify({'location': None}), 200
+
+        latitude = float(latitude)
+        longitude = float(longitude)
+        return jsonify({
+            'location': {
+                'latitude': latitude,
+                'longitude': longitude,
+                'label': label,
+                'wazeUrl': _waze_url(latitude, longitude),
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@gallery_bp.route('/event/<event_id>/location', methods=['POST'])
+def set_event_location(event_id):
+    """
+    Setea la ubicación del evento para "Cómo llegar" (solo novios).
+
+    Body JSON:
+      {
+        "adminCode": "...",
+        "latitude": -33.45,
+        "longitude": -70.66,
+        "label": "Casa / iglesia / salón"
+      }
+    """
+    data = request.get_json(silent=True) or {}
+    admin_code = (data.get('adminCode') or '').strip().upper()
+    label = (data.get('label') or '').strip()
+
+    if not event_id:
+        return jsonify({'error': 'eventId requerido'}), 400
+    if admin_code != _expected_admin_code(event_id):
+        return jsonify({'error': 'Código de novios inválido'}), 403
+
+    try:
+        latitude = _parse_coordinate(data.get('latitude'), 'latitude')
+        longitude = _parse_coordinate(data.get('longitude'), 'longitude')
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    try:
+        payload = {
+            'venueLatitude': latitude,
+            'venueLongitude': longitude,
+            'venueLabel': label,
+            'wazeUrl': _waze_url(latitude, longitude),
+            'updatedAt': datetime.now(timezone.utc).isoformat(),
+        }
+        firebase_service.db.collection('events').document(event_id).collection('settings').document('public').set(
+            payload,
+            merge=True,
+        )
+        return jsonify({
+            'ok': True,
+            'location': {
+                'latitude': latitude,
+                'longitude': longitude,
+                'label': label,
+                'wazeUrl': payload['wazeUrl'],
+            }
+        }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
