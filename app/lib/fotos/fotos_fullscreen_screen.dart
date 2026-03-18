@@ -312,7 +312,7 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text('Subido por: $uploadedByName', style: AppTextStyles.subtitle.copyWith(fontSize: 14)),
-                  const SizedBox(height: AppSpacing.x1_5),
+                  const SizedBox(height: AppSpacing.x1),
                   Row(
                     children: [
                       IconButton(
@@ -329,42 +329,25 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                       ),
                       const SizedBox(width: AppSpacing.x1),
                       Text('likes', style: AppTextStyles.subtitle),
-                      const Spacer(),
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(999),
-                          onTap: _downloadCurrentPhoto,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.x1_5,
-                              vertical: AppSpacing.x1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                color: AppColors.primary.withOpacity(0.18),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.download_outlined,
-                                  size: 16,
-                                  color: AppColors.primary,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Descargar',
-                                  style: AppTextStyles.subtitle.copyWith(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
+                      const SizedBox(width: AppSpacing.x1),
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.08),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.primary.withOpacity(0.18),
+                          ),
+                        ),
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          tooltip: 'Descargar',
+                          onPressed: _downloadCurrentPhoto,
+                          icon: const Icon(
+                            Icons.arrow_downward_rounded,
+                            size: 16,
+                            color: AppColors.primary,
                           ),
                         ),
                       ),
