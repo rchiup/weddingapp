@@ -28,7 +28,7 @@ class _EntryScreenState extends State<EntryScreen> {
   void _maybeAskName(BuildContext context, UserContextProvider userContext) {
     final hasEvent = userContext.eventId != null && userContext.eventId!.isNotEmpty;
     final noName = userContext.userName == null || userContext.userName!.trim().isEmpty;
-    if (!hasEvent || !noName || _nameDialogShown) return;
+    if (!hasEvent || !noName || _nameDialogShown || userContext.isAdmin) return;
     _nameDialogShown = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!context.mounted) return;
@@ -39,7 +39,7 @@ class _EntryScreenState extends State<EntryScreen> {
   void _maybeAskSingle(BuildContext context, UserContextProvider userContext) {
     final hasEvent = userContext.eventId != null && userContext.eventId!.isNotEmpty;
     final hasName = userContext.userName != null && userContext.userName!.trim().isNotEmpty;
-    if (!hasEvent || !hasName) return;
+    if (!hasEvent || !hasName || userContext.isAdmin) return;
     if (userContext.isSingleForCurrentEvent || userContext.declinedSingleForCurrentEvent) return;
     if (_singleDialogShown) return;
     _singleDialogShown = true;
@@ -134,7 +134,7 @@ class _EntryScreenState extends State<EntryScreen> {
           canPop: false,
           child: AlertDialog(
             title: const Text('¿Estás soltero/a?'),
-            content: const Text('Puedes activar el modo soltero para usar el chat y la lista.'),
+            content: const Text('Responde con Sí o No para continuar.'),
             actions: [
               Row(
                 children: [
@@ -294,17 +294,25 @@ class _EntryScreenState extends State<EntryScreen> {
                 onTap: () => context.go('/checkin'),
                 enabled: true,
               ),
+              const SizedBox(height: AppSpacing.x2),
+              _EntryCard(
+                title: '🗺️ Cómo llegar',
+                subtitle: 'Abrir Waze con la ubicación del evento',
+                icon: Icons.directions_outlined,
+                onTap: () => context.go('/como_llegar'),
+                enabled: true,
+              ),
               if (userContext.isSingleForCurrentEvent) ...[
                 const SizedBox(height: AppSpacing.x2),
                 Consumer<SolterosProvider>(
                   builder: (context, solteros, _) {
-                    final hasUnread = solteros.hasAnyUnread;
                     return _EntryCard(
-                      title: hasUnread ? '💘 Solteros (nuevo)' : '💘 Solteros',
+                      title: '💘 Solteros',
                       subtitle: 'Chat y lista de solteros del evento',
                       icon: Icons.favorite_border,
                       onTap: () => context.go('/solteros'),
                       enabled: true,
+                      showBadge: solteros.hasUnreadDm,
                     );
                   },
                 ),
@@ -351,6 +359,7 @@ class _EntryCard extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final bool enabled;
+  final bool showBadge;
 
   const _EntryCard({
     required this.title,
@@ -358,44 +367,64 @@ class _EntryCard extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.enabled = true,
+    this.showBadge = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return CustomCard(
-      onTap: enabled ? onTap : null,
-      padding: const EdgeInsets.all(AppSpacing.x2),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: enabled ? AppColors.primary.withOpacity(0.10) : Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(icon, color: enabled ? AppColors.primary : Colors.grey),
-          ),
-          const SizedBox(width: AppSpacing.x1_5),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: AppTextStyles.title.copyWith(fontSize: 16),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        CustomCard(
+          onTap: enabled ? onTap : null,
+          padding: const EdgeInsets.all(AppSpacing.x2),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: enabled ? AppColors.primary.withOpacity(0.10) : Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                const SizedBox(height: AppSpacing.x1),
-                Text(
-                  subtitle,
-                  style: AppTextStyles.subtitle,
+                child: Icon(icon, color: enabled ? AppColors.primary : Colors.grey),
+              ),
+              const SizedBox(width: AppSpacing.x1_5),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppTextStyles.title.copyWith(fontSize: 16),
+                    ),
+                    const SizedBox(height: AppSpacing.x1),
+                    Text(
+                      subtitle,
+                      style: AppTextStyles.subtitle,
+                    ),
+                  ],
                 ),
-              ],
+              ),
+              Icon(Icons.chevron_right, color: enabled ? AppColors.textPrimary.withOpacity(0.35) : Colors.grey),
+            ],
+          ),
+        ),
+        if (showBadge)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
             ),
           ),
-          Icon(Icons.chevron_right, color: enabled ? AppColors.textPrimary.withOpacity(0.35) : Colors.grey),
-        ],
-      ),
+      ],
     );
   }
 }

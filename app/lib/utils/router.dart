@@ -7,6 +7,7 @@ import '../home/blocked_screen.dart';
 import '../home/entry_screen.dart';
 import '../fotos/fotos_flow.dart';
 import '../admin_export/admin_export_flow.dart';
+import '../como_llegar/como_llegar_screen.dart';
 import '../mesas/mesas_flow.dart';
 import '../lista_novios/lista_novios_screen.dart';
 import '../lista_novios/novios_admin_screen.dart';
@@ -71,6 +72,11 @@ class AppRouter {
           path: '/fotos',
           name: 'fotos',
           builder: (context, state) => const FotosFlow(),
+        ),
+        GoRoute(
+          path: '/como_llegar',
+          name: 'como_llegar',
+          builder: (context, state) => const ComoLlegarScreen(),
         ),
         GoRoute(
           path: '/rsvp',
