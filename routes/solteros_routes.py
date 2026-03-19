@@ -88,7 +88,6 @@ def activate_single(event_id):
         ref = _singles_doc(event_id, user_id)
         snap = ref.get()
         if snap.exists:
-            # Idempotente
             return jsonify({"ok": True, "already": True}), 200
 
         ref.set({
@@ -176,7 +175,6 @@ def get_global_chat_messages(event_id):
 def post_global_chat_message(event_id):
     data = request.get_json(silent=True) or {}
     viewer_id = (data.get("viewerId") or "").strip()
-    name = (data.get("name") or "").strip() or "Invitado"
     text = (data.get("text") or "").strip()
 
     if not event_id or not viewer_id or not text:
@@ -185,12 +183,13 @@ def post_global_chat_message(event_id):
         return jsonify({"error": "Solo disponible para solteros"}), 403
 
     try:
+        viewer_name = _single_name(event_id, viewer_id, fallback="Invitado")
         chat_doc = _global_chat_doc(event_id)
         ref = chat_doc.collection("messages").document()
         now = _now_iso()
         ref.set({
             "userId": viewer_id,
-            "name": name,
+            "name": viewer_name,
             "text": text,
             "createdAt": now,
         })
@@ -313,7 +312,6 @@ def get_dm_messages(event_id, other_user_id):
 def post_dm_message(event_id, other_user_id):
     data = request.get_json(silent=True) or {}
     viewer_id = (data.get("viewerId") or "").strip()
-    name = (data.get("name") or "").strip() or "Invitado"
     text = (data.get("text") or "").strip()
 
     if not event_id or not other_user_id or not viewer_id or not text:
@@ -324,19 +322,20 @@ def post_dm_message(event_id, other_user_id):
         return jsonify({"error": "El usuario no está en modo soltero"}), 403
 
     try:
+        viewer_name = _single_name(event_id, viewer_id, fallback="Invitado")
         thread_doc = _dm_doc(event_id, viewer_id, other_user_id)
         ref = thread_doc.collection("messages").document()
         now = _now_iso()
         ref.set({
             "userId": viewer_id,
-            "name": name,
+            "name": viewer_name,
             "text": text,
             "createdAt": now,
         })
         thread_doc.set({
             "participantIds": [viewer_id, other_user_id],
             "participantNames": {
-                viewer_id: name,
+                viewer_id: viewer_name,
                 other_user_id: _single_name(event_id, other_user_id),
             },
             "lastMessage": text,
