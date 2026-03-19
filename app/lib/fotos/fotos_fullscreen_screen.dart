@@ -158,12 +158,12 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
     required String userName,
     double? maxHeight,
   }) {
+    final constraints = maxHeight == null
+        ? const BoxConstraints(minHeight: 260)
+        : BoxConstraints(minHeight: 260, maxHeight: maxHeight);
     final imageCard = Container(
       width: double.infinity,
-      constraints: BoxConstraints(
-        minHeight: 260,
-        if (maxHeight != null) maxHeight: maxHeight,
-      ),
+      constraints: constraints,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: AppRadii.card,
