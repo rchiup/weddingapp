@@ -379,7 +379,7 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
             : fallbackName);
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    final isWide = screenWidth >= 900;
+    final isWide = screenWidth >= 760;
 
     return Scaffold(
       appBar: AppBar(
@@ -448,12 +448,10 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                 children: [
                   Expanded(
                     flex: 6,
-                    child: Center(
-                      child: _buildPhotoViewer(
-                        userId: userId,
-                        userName: userName,
-                        maxHeight: screenHeight - 140,
-                      ),
+                    child: _buildPhotoViewer(
+                      userId: userId,
+                      userName: userName,
+                      maxHeight: screenHeight - 140,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.x2),
@@ -480,12 +478,10 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                   flex: 5,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(AppSpacing.x2, AppSpacing.x2, AppSpacing.x2, AppSpacing.x1),
-                    child: Center(
-                      child: _buildPhotoViewer(
-                        userId: userId,
-                        userName: userName,
-                        maxHeight: screenHeight * 0.48,
-                      ),
+                    child: _buildPhotoViewer(
+                      userId: userId,
+                      userName: userName,
+                      maxHeight: screenHeight * 0.56,
                     ),
                   ),
                 ),
