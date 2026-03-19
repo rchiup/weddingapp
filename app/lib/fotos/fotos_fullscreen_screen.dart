@@ -163,6 +163,7 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
         : BoxConstraints(minHeight: 260, maxHeight: maxHeight);
     final imageCard = Container(
       width: double.infinity,
+      height: maxHeight,
       constraints: constraints,
       decoration: BoxDecoration(
         color: Colors.white,
@@ -251,28 +252,6 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
               ),
               const SizedBox(width: AppSpacing.x1),
               Text('likes', style: AppTextStyles.subtitle),
-              const SizedBox(width: AppSpacing.x1),
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.08),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.primary.withOpacity(0.18),
-                  ),
-                ),
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  tooltip: 'Descargar',
-                  onPressed: _downloadCurrentPhoto,
-                  icon: const Icon(
-                    Icons.arrow_downward_rounded,
-                    size: 16,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: AppSpacing.x1),
@@ -481,7 +460,9 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                     child: _buildPhotoViewer(
                       userId: userId,
                       userName: userName,
-                      maxHeight: screenHeight * 0.56,
+                      // En celular la foto debe verse más grande; el bloque de
+                      // comentarios queda recortado abajo.
+                      maxHeight: screenHeight * 0.62,
                     ),
                   ),
                 ),
@@ -493,8 +474,10 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                     userName: userName,
                   ),
                 ),
-                Expanded(
-                  flex: 4,
+                SizedBox(
+                  // Vista previa: se alcanza a ver el 1er comentario y
+                  // para el resto hay que scrollear dentro del bloque.
+                  height: screenHeight * 0.22,
                   child: _buildCommentsList(fallbackName),
                 ),
               ],
