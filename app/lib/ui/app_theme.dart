@@ -23,6 +23,20 @@ class AppShadows {
       offset: const Offset(0, 4),
     ),
   ];
+
+  /// Cards “elevadas” (menú principal, highlights)
+  static final lift = [
+    BoxShadow(
+      color: AppColors.primary.withOpacity(0.07),
+      blurRadius: 20,
+      offset: const Offset(0, 8),
+    ),
+    BoxShadow(
+      color: Colors.black.withOpacity(0.04),
+      blurRadius: 12,
+      offset: const Offset(0, 2),
+    ),
+  ];
 }
 
 class AppSpacing {
@@ -71,6 +85,15 @@ class AppTheme {
 
     return base.copyWith(
       textTheme: AppTextStyles.textTheme(base.textTheme),
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+        },
+      ),
       appBarTheme: AppBarTheme(
         elevation: 0,
         scrolledUnderElevation: 0,

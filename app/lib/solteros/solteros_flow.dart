@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../ui/app_theme.dart';
+import '../utils/nav_safe.dart';
 import 'solteros_conversations_screen.dart';
 import 'solteros_provider.dart';
 import 'solteros_screen.dart';
@@ -43,7 +43,7 @@ class _SolterosFlowState extends State<SolterosFlow> {
       appBar: AppBar(
         title: const Text('Solteros'),
         leading: IconButton(
-          onPressed: () => context.go('/entry'),
+          onPressed: () => popOrEntry(context),
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Volver',
         ),

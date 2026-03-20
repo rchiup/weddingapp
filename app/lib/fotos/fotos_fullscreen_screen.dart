@@ -26,15 +26,28 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
   final FotosSocialService _socialService = FotosSocialService();
   final FotosRepository _fotosRepository = FotosRepository();
   final TextEditingController _commentController = TextEditingController();
+  /// Evita que el pan horizontal del zoom compita con el gesto “volver” del sistema
+  /// (iOS edge-swipe / Android predictive back): solo permitir arrastre si ya hay zoom.
+  final TransformationController _imageViewerController = TransformationController();
+  bool _imageViewerPanEnabled = false;
   int? _initialLikeCount;
   bool? _initialIsLiked;
   List<Map<String, dynamic>> _comments = [];
   bool _loadingComments = false;
   bool _showDoubleTapHeart = false;
 
+  void _onImageViewerTransform() {
+    final scale = _imageViewerController.value.getMaxScaleOnAxis();
+    final wantPan = scale > 1.02;
+    if (wantPan != _imageViewerPanEnabled && mounted) {
+      setState(() => _imageViewerPanEnabled = wantPan);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _imageViewerController.addListener(_onImageViewerTransform);
     _loadInitialLikes();
     _loadComments();
   }
@@ -157,69 +170,88 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
     required String userId,
     required String userName,
     double? maxHeight,
+    /// En desktop: la imagen llena el marco (sin franjas gigantes arriba/abajo).
+    bool fillCover = false,
   }) {
-    final constraints = maxHeight == null
-        ? const BoxConstraints(minHeight: 260)
-        : BoxConstraints(minHeight: 260, maxHeight: maxHeight);
-    final imageCard = Container(
-      width: double.infinity,
-      height: maxHeight,
-      constraints: constraints,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: AppRadii.card,
-        boxShadow: AppShadows.soft,
-        border: Border.all(color: AppColors.border),
-      ),
-      child: ClipRRect(
-        borderRadius: AppRadii.card,
-        child: Image.network(
-          widget.photo.url,
-          fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => const Center(
-            child: Icon(Icons.broken_image_outlined, size: 48),
+    return LayoutBuilder(
+      builder: (context, boxConstraints) {
+        final effectiveH = maxHeight ?? boxConstraints.maxHeight;
+        if (!effectiveH.isFinite || effectiveH <= 0) {
+          return const SizedBox.shrink();
+        }
+        final h = effectiveH;
+        final imageFit = fillCover ? BoxFit.cover : BoxFit.contain;
+        final imageCard = Container(
+          width: double.infinity,
+          height: h,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: AppRadii.card,
+            boxShadow: AppShadows.soft,
+            border: Border.all(color: AppColors.border),
           ),
-        ),
-      ),
-    );
-
-    return InteractiveViewer(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onDoubleTap: () async {
-          await _playHeartPop();
-          await _toggleLike(userId: userId, userName: userName);
-        },
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            imageCard,
-            IgnorePointer(
-              child: AnimatedScale(
-                scale: _showDoubleTapHeart ? 1.0 : 0.6,
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOutBack,
-                child: AnimatedOpacity(
-                  opacity: _showDoubleTapHeart ? 0.9 : 0.0,
-                  duration: const Duration(milliseconds: 180),
-                  child: const Icon(
-                    Icons.favorite,
-                    color: Colors.white,
-                    size: 120,
-                    shadows: [
-                      Shadow(
-                        blurRadius: 12,
-                        color: Colors.black38,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                ),
+          child: ClipRRect(
+            borderRadius: AppRadii.card,
+            child: Image.network(
+              widget.photo.url,
+              fit: imageFit,
+              alignment: Alignment.center,
+              errorBuilder: (_, __, ___) => const Center(
+                child: Icon(Icons.broken_image_outlined, size: 48),
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+
+        return InteractiveViewer(
+          transformationController: _imageViewerController,
+          // En desktop (fillCover) anclamos arriba para que el marco blanco coincida
+          // con el inicio del panel de comentarios; el default (centro) puede dejar
+          // la tarjeta “bajada” vs. la columna derecha en algunos navegadores.
+          alignment: fillCover ? Alignment.topCenter : null,
+          panEnabled: _imageViewerPanEnabled,
+          minScale: 1,
+          maxScale: 4,
+          boundaryMargin: const EdgeInsets.all(80),
+          clipBehavior: Clip.hardEdge,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onDoubleTap: () async {
+              await _playHeartPop();
+              await _toggleLike(userId: userId, userName: userName);
+            },
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                imageCard,
+                IgnorePointer(
+                  child: AnimatedScale(
+                    scale: _showDoubleTapHeart ? 1.0 : 0.6,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutBack,
+                    child: AnimatedOpacity(
+                      opacity: _showDoubleTapHeart ? 0.9 : 0.0,
+                      duration: const Duration(milliseconds: 180),
+                      child: const Icon(
+                        Icons.favorite,
+                        color: Colors.white,
+                        size: 120,
+                        shadows: [
+                          Shadow(
+                            blurRadius: 12,
+                            color: Colors.black38,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -227,7 +259,79 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
     required String uploadedByName,
     required String userId,
     required String userName,
+    /// Tarjeta más baja en móvil: prioriza la foto; comentarios van abajo con scroll.
+    bool compact = false,
   }) {
+    if (compact) {
+      return CustomCard(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x1_5,
+          vertical: AppSpacing.x1,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Subido por: $uploadedByName',
+                    style: AppTextStyles.subtitle.copyWith(fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  onPressed: () async => _toggleLike(userId: userId, userName: userName),
+                  icon: Icon(
+                    (_initialIsLiked ?? false) ? Icons.favorite : Icons.favorite_border,
+                    size: 22,
+                    color: (_initialIsLiked ?? false) ? Colors.red : AppColors.textPrimary.withOpacity(0.7),
+                  ),
+                  tooltip: (_initialIsLiked ?? false) ? 'Quitar like' : 'Me gusta',
+                ),
+                Text(
+                  _initialLikeCount == null ? '—' : '$_initialLikeCount',
+                  style: AppTextStyles.title.copyWith(fontSize: 14),
+                ),
+                Text(' likes', style: AppTextStyles.subtitle.copyWith(fontSize: 11)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _commentController,
+                    decoration: const InputDecoration(
+                      hintText: 'Escribe un comentario...',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    style: const TextStyle(fontSize: 14),
+                    maxLines: 1,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _submitComment(userId: userId, userName: userName),
+                  ),
+                ),
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                  onPressed: () async => _submitComment(userId: userId, userName: userName),
+                  icon: const Icon(Icons.send, size: 22),
+                  color: AppColors.primary,
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
     return CustomCard(
       padding: const EdgeInsets.all(AppSpacing.x2),
       child: Column(
@@ -285,47 +389,146 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
     );
   }
 
-  Widget _buildCommentsList(String fallbackName) {
-    if (_loadingComments) {
-      return const Center(child: CircularProgressIndicator());
+  /// Una sola tarjeta de comentario (reutilizado en lista móvil, desktop y scroll móvil).
+  Widget _commentCard(Map<String, dynamic> c, String fallbackName) {
+    final ts = c['timestamp'];
+    DateTime? dt;
+    if (ts is String) {
+      dt = DateTime.tryParse(ts);
+    } else if (ts is Timestamp) {
+      dt = ts.toDate();
     }
-    if (_comments.isEmpty) {
-      return Center(child: Text('Sin comentarios', style: AppTextStyles.subtitle));
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2),
-      itemCount: _comments.length,
-      itemBuilder: (_, i) {
-        final c = _comments[i];
-        final ts = c['timestamp'];
-        DateTime? dt;
-        if (ts is String) {
-          dt = DateTime.tryParse(ts);
-        } else if (ts is Timestamp) {
-          dt = ts.toDate();
-        }
-        final dateStr = dt != null
-            ? '${dt.day}/${dt.month} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}'
-            : '';
-        final commentName = (c['name'] ?? '').toString().trim();
-        return Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.x1_5),
-          child: CustomCard(
-            padding: const EdgeInsets.all(AppSpacing.x1_5),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${commentName.isNotEmpty ? commentName : fallbackName} · $dateStr',
-                  style: AppTextStyles.subtitle.copyWith(fontSize: 12),
-                ),
-                const SizedBox(height: AppSpacing.x1),
-                Text('${c['message'] ?? ''}'),
-              ],
+    final dateStr = dt != null
+        ? '${dt.day}/${dt.month} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}'
+        : '';
+    final commentName = (c['name'] ?? '').toString().trim();
+    return CustomCard(
+      padding: const EdgeInsets.all(AppSpacing.x1_5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${commentName.isNotEmpty ? commentName : fallbackName} · $dateStr',
+            style: AppTextStyles.subtitle.copyWith(fontSize: 12),
+          ),
+          const SizedBox(height: AppSpacing.x1),
+          Text('${c['message'] ?? ''}'),
+        ],
+      ),
+    );
+  }
+
+  /// Móvil: likes + input + comentarios en un scroll; la foto ocupa el Expanded de arriba.
+  Widget _buildMobileScrollSection({
+    required String uploadedByName,
+    required String userId,
+    required String userName,
+    required String fallbackName,
+  }) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.x2, 0, AppSpacing.x2, AppSpacing.x1),
+            child: _buildSocialCard(
+              uploadedByName: uploadedByName,
+              userId: userId,
+              userName: userName,
+              compact: true,
             ),
           ),
-        );
-      },
+        ),
+        if (_loadingComments)
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.all(AppSpacing.x3),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          )
+        else if (_comments.isEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2),
+              child: Text('Sin comentarios', style: AppTextStyles.subtitle),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.x2, 0, AppSpacing.x2, AppSpacing.x2),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, i) {
+                  final c = _comments[i];
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      bottom: i == _comments.length - 1 ? 0 : AppSpacing.x1_5,
+                    ),
+                    child: _commentCard(c, fallbackName),
+                  );
+                },
+                childCount: _comments.length,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// Panel derecho en desktop: un solo scroll (metadatos + input + comentarios)
+  /// para no dejar un bloque vacío enorme debajo de pocos comentarios.
+  Widget _buildWideSidePanel({
+    required String uploadedByName,
+    required String userId,
+    required String userName,
+    required String fallbackName,
+  }) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 0, bottom: AppSpacing.x2),
+            child: _buildSocialCard(
+              uploadedByName: uploadedByName,
+              userId: userId,
+              userName: userName,
+            ),
+          ),
+        ),
+        if (_loadingComments)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_comments.isEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2),
+              child: Text('Sin comentarios', style: AppTextStyles.subtitle),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: EdgeInsets.zero,
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, i) {
+                  return Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.x2,
+                      0,
+                      AppSpacing.x2,
+                      i == _comments.length - 1 ? AppSpacing.x2 : AppSpacing.x1_5,
+                    ),
+                    child: _commentCard(_comments[i], fallbackName),
+                  );
+                },
+                childCount: _comments.length,
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -339,6 +542,8 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
 
   @override
   void dispose() {
+    _imageViewerController.removeListener(_onImageViewerTransform);
+    _imageViewerController.dispose();
     _commentController.dispose();
     super.dispose();
   }
@@ -357,11 +562,16 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
             ? widget.photo.uploadedByName
             : fallbackName);
     final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
     final isWide = screenWidth >= 760;
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: 'Volver',
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
         title: const Text('Foto'),
         actions: [
           IconButton(
@@ -422,63 +632,77 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
       body: isWide
           ? Padding(
               padding: const EdgeInsets.all(AppSpacing.x2),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    flex: 6,
-                    child: _buildPhotoViewer(
-                      userId: userId,
-                      userName: userName,
-                      maxHeight: screenHeight - 140,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.x2),
-                  Expanded(
-                    flex: 5,
-                    child: Column(
-                      children: [
-                        _buildSocialCard(
-                          uploadedByName: uploadedByName,
-                          userId: userId,
-                          userName: userName,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // Altura útil debajo del AppBar (el body ya está debajo; LayoutBuilder
+                  // usa el alto disponible del body).
+                  final innerHeight = constraints.maxHeight;
+                  // crossAxisAlignment.start + misma altura explícita: el panel de
+                  // comentarios arranca al mismo nivel que el marco de la foto (no más arriba).
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 6,
+                        child: SizedBox(
+                          height: innerHeight,
+                          width: double.infinity,
+                          child: _buildPhotoViewer(
+                            userId: userId,
+                            userName: userName,
+                            maxHeight: innerHeight,
+                            fillCover: true,
+                          ),
                         ),
-                        const SizedBox(height: AppSpacing.x2),
-                        Expanded(child: _buildCommentsList(fallbackName)),
-                      ],
-                    ),
-                  ),
-                ],
+                      ),
+                      const SizedBox(width: AppSpacing.x2),
+                      Expanded(
+                        flex: 5,
+                        child: SizedBox(
+                          height: innerHeight,
+                          width: double.infinity,
+                          child: _buildWideSidePanel(
+                            uploadedByName: uploadedByName,
+                            userId: userId,
+                            userName: userName,
+                            fallbackName: fallbackName,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             )
           : Column(
               children: [
+                // ~76% del cuerpo: foto llena el Expanded (sin tope 62% de pantalla).
                 Expanded(
-                  flex: 5,
+                  flex: 16,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(AppSpacing.x2, AppSpacing.x2, AppSpacing.x2, AppSpacing.x1),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.x2,
+                      AppSpacing.x2,
+                      AppSpacing.x2,
+                      AppSpacing.x1,
+                    ),
                     child: _buildPhotoViewer(
                       userId: userId,
                       userName: userName,
-                      // En celular la foto debe verse más grande; el bloque de
-                      // comentarios queda recortado abajo.
-                      maxHeight: screenHeight * 0.62,
+                      maxHeight: null,
+                      fillCover: true,
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.x2, 0, AppSpacing.x2, AppSpacing.x2),
-                  child: _buildSocialCard(
+                // ~24%: tarjeta compacta + comentarios (scroll para ver todo).
+                Expanded(
+                  flex: 5,
+                  child: _buildMobileScrollSection(
                     uploadedByName: uploadedByName,
                     userId: userId,
                     userName: userName,
+                    fallbackName: fallbackName,
                   ),
-                ),
-                SizedBox(
-                  // Vista previa: se alcanza a ver el 1er comentario y
-                  // para el resto hay que scrollear dentro del bloque.
-                  height: screenHeight * 0.22,
-                  child: _buildCommentsList(fallbackName),
                 ),
               ],
             ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../utils/nav_safe.dart';
+
 /// Pantalla de bloqueo por guard
 class BlockedScreen extends StatelessWidget {
   final String? reason;
@@ -67,7 +69,7 @@ class BlockedScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             OutlinedButton(
-              onPressed: () => context.go('/entry'),
+              onPressed: () => popOrEntry(context),
               child: const Text('Volver al inicio'),
             ),
           ],

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +6,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../lista_novios/novios_registry_service.dart';
 import '../user_context/user_context_provider.dart';
+import '../utils/nav_safe.dart';
 import '../ui/app_theme.dart';
 import '../ui/custom_button.dart';
 import '../ui/custom_card.dart';
@@ -379,7 +379,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
           const SizedBox(height: AppSpacing.x2),
           Center(
             child: TextButton(
-              onPressed: () => context.go('/entry'),
+              onPressed: () => popOrEntry(context),
               child: const Text('Volver al menú'),
             ),
           ),

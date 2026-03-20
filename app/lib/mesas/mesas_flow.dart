@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'mesas_provider.dart';
 import 'mesas_search_screen.dart';
+import '../utils/nav_safe.dart';
 
 /// Entry point del flujo de Mesas
 class MesasFlow extends StatelessWidget {
@@ -17,7 +17,7 @@ class MesasFlow extends StatelessWidget {
         appBar: AppBar(
           title: const Text('Mesas'),
           leading: IconButton(
-            onPressed: () => context.go('/entry'),
+            onPressed: () => popOrEntry(context),
             icon: const Icon(Icons.arrow_back),
             tooltip: 'Volver',
           ),

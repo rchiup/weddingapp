@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../user_context/user_context_provider.dart';
+import '../utils/nav_safe.dart';
 import 'rsvp_provider.dart';
 import 'rsvp_screen.dart';
-import '../user_context/user_context_provider.dart';
 
 /// Entry point del flujo RSVP
 ///
@@ -24,7 +24,7 @@ class RsvpFlow extends StatelessWidget {
         appBar: AppBar(
           title: const Text('Confirmar asistencia'),
           leading: IconButton(
-            onPressed: () => context.go('/entry'),
+            onPressed: () => popOrEntry(context),
             icon: const Icon(Icons.arrow_back),
             tooltip: 'Volver',
           ),

@@ -15,6 +15,7 @@ import '../rsvp/rsvp_flow.dart';
 import '../solteros/solteros_flow.dart';
 import '../solteros/solteros_dm_screen.dart';
 import '../user_context/user_context_provider.dart';
+import 'nav_safe.dart';
 
 /// Configuración de rutas de la aplicación
 /// 
@@ -115,7 +116,7 @@ class AppRouter {
             appBar: AppBar(
               title: const Text('Ya llegué'),
               leading: IconButton(
-                onPressed: () => context.go('/entry'),
+                onPressed: () => popOrEntry(context),
                 icon: const Icon(Icons.arrow_back),
                 tooltip: 'Volver',
               ),

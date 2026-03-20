@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../ui/startup_background.dart';
 import 'fotos_export_screen.dart';
+import '../utils/nav_safe.dart';
 import 'fotos_feed_screen.dart';
 import 'fotos_upload_screen.dart';
 import 'fotos_provider.dart';
@@ -31,10 +32,12 @@ class _FotosFlowState extends State<FotosFlow> {
     return ChangeNotifierProvider(
       create: (_) => FotosProvider(),
       child: Scaffold(
+        backgroundColor: const Color(0xFFF4F2FF),
         appBar: AppBar(
           title: const Text('Fotos del evento'),
+          backgroundColor: const Color(0xFFF4F2FF),
           leading: IconButton(
-            onPressed: () => context.go('/entry'),
+            onPressed: () => popOrEntry(context),
             icon: const Icon(Icons.arrow_back),
             tooltip: 'Volver',
           ),
@@ -50,8 +53,12 @@ class _FotosFlowState extends State<FotosFlow> {
             ),
           ],
         ),
-        body: screens[_currentIndex],
+        body: StartupBackground(
+          child: screens[_currentIndex],
+        ),
         bottomNavigationBar: BottomNavigationBar(
+          backgroundColor: Colors.white,
+          elevation: 8,
           currentIndex: _currentIndex,
           onTap: (index) => setState(() => _currentIndex = index),
           items: const [

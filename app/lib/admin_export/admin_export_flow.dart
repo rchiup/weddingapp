@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+
+import '../utils/nav_safe.dart';
 
 import 'admin_export_screen.dart';
 
@@ -13,7 +14,7 @@ class AdminExportFlow extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Exportar (admin)'),
         leading: IconButton(
-          onPressed: () => context.go('/entry'),
+          onPressed: () => popOrEntry(context),
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Volver',
         ),

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../user_context/user_context_provider.dart';
+import '../utils/nav_safe.dart';
 import 'lista_novios_button.dart';
 import 'novios_registry_service.dart';
 
@@ -18,7 +19,7 @@ class ListaNoviosScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Lista de novios'),
         leading: IconButton(
-          onPressed: () => context.go('/entry'),
+          onPressed: () => popOrEntry(context),
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Volver',
         ),

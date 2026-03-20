@@ -8,6 +8,7 @@ import '../ui/app_theme.dart';
 import '../ui/custom_button.dart';
 import '../ui/custom_card.dart';
 import '../user_context/user_context_provider.dart';
+import '../utils/nav_safe.dart';
 
 class ComoLlegarScreen extends StatefulWidget {
   const ComoLlegarScreen({super.key});
@@ -85,7 +86,7 @@ class _ComoLlegarScreenState extends State<ComoLlegarScreen> {
       appBar: AppBar(
         title: const Text('Cómo llegar'),
         leading: IconButton(
-          onPressed: () => context.go('/entry'),
+          onPressed: () => popOrEntry(context),
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Volver',
         ),

@@ -10,6 +10,7 @@ import '../solteros/solteros_provider.dart';
 import '../ui/app_theme.dart';
 import '../ui/custom_button.dart';
 import '../ui/custom_card.dart';
+import '../ui/startup_background.dart';
 import '../user_context/user_context_provider.dart';
 
 /// Pantalla de entrada neutral
@@ -380,115 +381,136 @@ class _EntryScreenState extends State<EntryScreen> {
     _maybeAskLocation(context, userContext);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF4F2FF),
       appBar: AppBar(
         title: const Text('Bienvenido'),
+        backgroundColor: const Color(0xFFF4F2FF),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(AppSpacing.x2),
-        child: ListView(
-          children: [
-            if (hasEvent) ...[
-              CustomCard(
-                padding: const EdgeInsets.all(AppSpacing.x2),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(Icons.event_available, color: AppColors.primary),
-                    ),
-                    const SizedBox(width: AppSpacing.x1_5),
-                    Expanded(
-                      child: Text(
-                        userContext.eventName ?? 'Evento activo',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ],
+      body: StartupBackground(
+        child: SafeArea(
+          top: false,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.x2,
+                  AppSpacing.x1,
+                  AppSpacing.x2,
+                  AppSpacing.x3,
                 ),
-              ),
-              const SizedBox(height: AppSpacing.x2),
-            ],
-            _EntryCard(
-              title: 'Unirme a un evento',
-              subtitle: 'Ingresa un código o escanea un QR',
-              icon: Icons.qr_code_2,
-              onTap: () => context.go('/event_join'),
-            ),
-            if (hasEvent) ...[
-              const SizedBox(height: AppSpacing.x2),
-              _EntryCard(
-                title: '📸 Fotos del evento',
-                subtitle: 'Ver y subir fotos del evento',
-                icon: Icons.photo_library_outlined,
-                onTap: () => context.go('/fotos'),
-                enabled: true,
-              ),
-              const SizedBox(height: AppSpacing.x2),
-              _EntryCard(
-                title: '🎉 Ver quién llegó',
-                subtitle: 'Entra para ver quién ya llegó',
-                icon: Icons.celebration_outlined,
-                onTap: () => context.go('/checkin'),
-                enabled: true,
-              ),
-              const SizedBox(height: AppSpacing.x2),
-              _EntryCard(
-                title: '🗺️ Cómo llegar',
-                subtitle: 'Abrir Waze con la ubicación del evento',
-                icon: Icons.directions_outlined,
-                onTap: () => context.go('/como_llegar'),
-                enabled: true,
-              ),
-              if (userContext.isSingleForCurrentEvent) ...[
-                const SizedBox(height: AppSpacing.x2),
-                Consumer<SolterosProvider>(
-                  builder: (context, solteros, _) {
-                    return _EntryCard(
-                      title: '💘 Solteros',
-                      subtitle: 'Lista, chats y foro de solteros del evento',
-                      icon: Icons.favorite_border,
-                      onTap: () => context.go('/solteros/chats'),
+                physics: const BouncingScrollPhysics(),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, right: 4, bottom: AppSpacing.x2),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          hasEvent
+                              ? (userContext.eventName ?? 'Tu evento')
+                              : 'Hola',
+                          style: AppTextStyles.title.copyWith(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            height: 1.12,
+                            letterSpacing: -0.6,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          hasEvent
+                              ? 'Todo lo del evento en un solo lugar.'
+                              : 'Únete con tu código para fotos, llegadas y más.',
+                          style: AppTextStyles.subtitle.copyWith(
+                            fontSize: 14,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const StartupSectionLabel(text: 'Comenzar', denseTop: true),
+                  _EntryCard(
+                    title: 'Unirme a un evento',
+                    subtitle: 'Ingresa un código o escanea un QR',
+                    icon: Icons.qr_code_2,
+                    onTap: () => context.push('/event_join'),
+                  ),
+                  if (hasEvent) ...[
+                    const StartupSectionLabel(text: 'Menú del evento'),
+                    const SizedBox(height: AppSpacing.x1),
+                    _EntryCard(
+                      title: '📸 Fotos del evento',
+                      subtitle: 'Ver y subir fotos del evento',
+                      icon: Icons.photo_library_outlined,
+                      onTap: () => context.push('/fotos'),
                       enabled: true,
-                      showBadge: solteros.hasAnyUnread,
-                    );
-                  },
-                ),
-              ],
-              const SizedBox(height: AppSpacing.x2),
-              _EntryCard(
-                title: '👥 Invitados',
-                subtitle: disableTablesForEvent
-                    ? 'No aplica para este evento'
-                    : 'Buscar mesa e invitados',
-                icon: Icons.people_outline,
-                onTap: () => context.go('/mesas'),
-                enabled: !disableTablesForEvent,
+                    ),
+                    const SizedBox(height: AppSpacing.x2),
+                    _EntryCard(
+                      title: '🎉 Ver quién llegó',
+                      subtitle: 'Entra para ver quién ya llegó',
+                      icon: Icons.celebration_outlined,
+                      onTap: () => context.push('/checkin'),
+                      enabled: true,
+                    ),
+                    const SizedBox(height: AppSpacing.x2),
+                    _EntryCard(
+                      title: '🗺️ Cómo llegar',
+                      subtitle: 'Abrir Waze con la ubicación del evento',
+                      icon: Icons.directions_outlined,
+                      onTap: () => context.push('/como_llegar'),
+                      enabled: true,
+                    ),
+                    if (userContext.isSingleForCurrentEvent) ...[
+                      const SizedBox(height: AppSpacing.x2),
+                      Consumer<SolterosProvider>(
+                        builder: (context, solteros, _) {
+                          return _EntryCard(
+                            title: '💘 Solteros',
+                            subtitle: 'Lista, chats y foro de solteros del evento',
+                            icon: Icons.favorite_border,
+                            onTap: () => context.push('/solteros/chats'),
+                            enabled: true,
+                            showBadge: solteros.hasAnyUnread,
+                          );
+                        },
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.x2),
+                    _EntryCard(
+                      title: '👥 Invitados',
+                      subtitle: disableTablesForEvent
+                          ? 'No aplica para este evento'
+                          : 'Buscar mesa e invitados',
+                      icon: Icons.people_outline,
+                      onTap: () => context.push('/mesas'),
+                      enabled: !disableTablesForEvent,
+                    ),
+                    const SizedBox(height: AppSpacing.x2),
+                    _EntryCard(
+                      title: '🎁 Lista de novios',
+                      subtitle: 'Ver lista de regalos',
+                      icon: Icons.card_giftcard_outlined,
+                      onTap: () => context.push('/lista_novios'),
+                      enabled: true,
+                    ),
+                    if (userContext.isAdmin) ...[
+                      const SizedBox(height: AppSpacing.x2),
+                      _EntryCard(
+                        title: '👰🤵 Panel de novios',
+                        subtitle: 'Editar link de la lista',
+                        icon: Icons.admin_panel_settings_outlined,
+                        onTap: () => context.push('/novios_admin'),
+                        enabled: true,
+                      ),
+                    ],
+                  ],
+                ],
               ),
-              const SizedBox(height: AppSpacing.x2),
-              _EntryCard(
-                title: '🎁 Lista de novios',
-                subtitle: 'Ver lista de regalos',
-                icon: Icons.card_giftcard_outlined,
-                onTap: () => context.go('/lista_novios'),
-                enabled: true,
-              ),
-              if (userContext.isAdmin) ...[
-                const SizedBox(height: AppSpacing.x2),
-                _EntryCard(
-                  title: '👰🤵 Panel de novios',
-                  subtitle: 'Editar link de la lista',
-                  icon: Icons.admin_panel_settings_outlined,
-                  onTap: () => context.go('/novios_admin'),
-                  enabled: true,
-                ),
-              ],
-            ],
-          ],
+            ),
+          ),
         ),
       ),
     );
@@ -519,6 +541,7 @@ class _EntryCard extends StatelessWidget {
       children: [
         CustomCard(
           onTap: enabled ? onTap : null,
+          elevated: enabled,
           padding: const EdgeInsets.all(AppSpacing.x2),
           child: Row(
             children: [

@@ -8,6 +8,7 @@ import '../ui/app_theme.dart';
 import '../ui/custom_button.dart';
 import '../ui/custom_card.dart';
 import '../user_context/user_context_provider.dart';
+import '../utils/nav_safe.dart';
 import 'novios_registry_service.dart';
 
 class NoviosAdminScreen extends StatefulWidget {
@@ -228,7 +229,7 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
       appBar: AppBar(
         title: const Text('Panel de novios'),
         leading: IconButton(
-          onPressed: () => context.go('/entry'),
+          onPressed: () => popOrEntry(context),
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Volver',
         ),
@@ -248,7 +249,7 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
                     const SizedBox(height: AppSpacing.x2),
                     CustomButton(
                       label: 'Volver',
-                      onPressed: () => context.go('/entry'),
+                      onPressed: () => popOrEntry(context),
                     ),
                   ],
                 ),
