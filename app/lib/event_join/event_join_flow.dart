@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../utils/nav_safe.dart';
+import '../utils/nested_flow_navigator.dart';
 import 'event_join_provider.dart';
 import 'event_join_screen.dart';
 
@@ -13,16 +14,18 @@ class EventJoinFlow extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => EventJoinProvider(),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Unirme a un evento'),
-          leading: IconButton(
-            onPressed: () => popOrEntry(context),
-            icon: const Icon(Icons.arrow_back),
-            tooltip: 'Volver',
+      child: NestedFlowNavigator(
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('Unirme a un evento'),
+            leading: IconButton(
+              onPressed: () => popOrEntry(context),
+              icon: const Icon(Icons.arrow_back),
+              tooltip: 'Volver',
+            ),
           ),
+          body: const EventJoinScreen(),
         ),
-        body: const EventJoinScreen(),
       ),
     );
   }

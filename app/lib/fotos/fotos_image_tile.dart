@@ -8,12 +8,21 @@ import 'fotos_fullscreen_screen.dart';
 import 'fotos_provider.dart';
 import 'fotos_repository.dart';
 
+/// Cuadrícula compacta vs tarjeta ancha tipo feed.
+enum FotosGalleryTileLayout { grid, feed }
+
 /// Tile de foto con recorte, "Subido por", like count vía API y apertura a pantalla completa
 class FotosImageTile extends StatefulWidget {
   final FotoModel photo;
   final String eventId;
+  final FotosGalleryTileLayout layout;
 
-  const FotosImageTile({super.key, required this.photo, required this.eventId});
+  const FotosImageTile({
+    super.key,
+    required this.photo,
+    required this.eventId,
+    this.layout = FotosGalleryTileLayout.grid,
+  });
 
   @override
   State<FotosImageTile> createState() => _FotosImageTileState();
@@ -90,7 +99,7 @@ class _FotosImageTileState extends State<FotosImageTile> {
             child: ClipRRect(
               borderRadius: AppRadii.card,
               child: AspectRatio(
-                aspectRatio: 1,
+                aspectRatio: widget.layout == FotosGalleryTileLayout.feed ? 4 / 5 : 1,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -123,19 +132,24 @@ class _FotosImageTileState extends State<FotosImageTile> {
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.x1),
+          SizedBox(height: widget.layout == FotosGalleryTileLayout.feed ? AppSpacing.x1_5 : AppSpacing.x1),
           Text(
             'Subido por: $uploadedByName',
             style: TextStyle(
-              fontSize: 11,
+              fontSize: widget.layout == FotosGalleryTileLayout.feed ? 13 : 11,
               color: Colors.grey.shade700,
+              fontWeight: widget.layout == FotosGalleryTileLayout.feed ? FontWeight.w600 : null,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           Row(
             children: [
-              Icon(Icons.favorite_border, size: 14, color: AppColors.textPrimary.withOpacity(0.45)),
+              Icon(
+                Icons.favorite_border,
+                size: widget.layout == FotosGalleryTileLayout.feed ? 18 : 14,
+                color: AppColors.textPrimary.withOpacity(0.45),
+              ),
               const SizedBox(width: 4),
               FutureBuilder<({int count, bool userLiked})?>(
                 future: _likesFuture,
@@ -143,11 +157,20 @@ class _FotosImageTileState extends State<FotosImageTile> {
                   final text = snap.connectionState == ConnectionState.waiting
                       ? '—'
                       : '${snap.data?.count ?? 0}';
-                  return Text(text, style: AppTextStyles.subtitle.copyWith(fontSize: 12));
+                  return Text(
+                    text,
+                    style: AppTextStyles.subtitle.copyWith(
+                      fontSize: widget.layout == FotosGalleryTileLayout.feed ? 14 : 12,
+                    ),
+                  );
                 },
               ),
               const SizedBox(width: AppSpacing.x1_5),
-              Icon(Icons.chat_bubble_outline, size: 14, color: AppColors.textPrimary.withOpacity(0.45)),
+              Icon(
+                Icons.chat_bubble_outline,
+                size: widget.layout == FotosGalleryTileLayout.feed ? 18 : 14,
+                color: AppColors.textPrimary.withOpacity(0.45),
+              ),
               const SizedBox(width: 4),
               FutureBuilder<int>(
                 future: _commentsCountFuture,
@@ -155,7 +178,12 @@ class _FotosImageTileState extends State<FotosImageTile> {
                   final text = snap.connectionState == ConnectionState.waiting
                       ? '—'
                       : '${snap.data ?? 0}';
-                  return Text(text, style: AppTextStyles.subtitle.copyWith(fontSize: 12));
+                  return Text(
+                    text,
+                    style: AppTextStyles.subtitle.copyWith(
+                      fontSize: widget.layout == FotosGalleryTileLayout.feed ? 14 : 12,
+                    ),
+                  );
                 },
               ),
             ],

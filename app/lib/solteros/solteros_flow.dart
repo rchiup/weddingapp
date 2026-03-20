@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../ui/app_theme.dart';
 import '../utils/nav_safe.dart';
+import '../utils/nested_flow_navigator.dart';
 import 'solteros_conversations_screen.dart';
 import 'solteros_provider.dart';
 import 'solteros_screen.dart';
@@ -39,67 +40,69 @@ class _SolterosFlowState extends State<SolterosFlow> {
       const SolterosChatScreen(),
     ];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Solteros'),
-        leading: IconButton(
-          onPressed: () => popOrEntry(context),
-          icon: const Icon(Icons.arrow_back),
-          tooltip: 'Volver',
+    return NestedFlowNavigator(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Solteros'),
+          leading: IconButton(
+            onPressed: () => popOrEntry(context),
+            icon: const Icon(Icons.arrow_back),
+            tooltip: 'Volver',
+          ),
         ),
-      ),
-      body: screens[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        items: [
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.people_outline),
-            label: 'Lista',
-          ),
-          BottomNavigationBarItem(
-            icon: Stack(
-              children: [
-                const Icon(Icons.forum_outlined),
-                if (solterosState.hasUnreadDm)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
+        body: screens[_currentIndex],
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) => setState(() => _currentIndex = index),
+          items: [
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.people_outline),
+              label: 'Lista',
+            ),
+            BottomNavigationBarItem(
+              icon: Stack(
+                children: [
+                  const Icon(Icons.forum_outlined),
+                  if (solterosState.hasUnreadDm)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
+              label: 'Chats',
             ),
-            label: 'Chats',
-          ),
-          BottomNavigationBarItem(
-            icon: Stack(
-              children: [
-                const Icon(Icons.chat_bubble_outline),
-                if (solterosState.hasUnreadGlobal)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
+            BottomNavigationBarItem(
+              icon: Stack(
+                children: [
+                  const Icon(Icons.chat_bubble_outline),
+                  if (solterosState.hasUnreadGlobal)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
+              label: 'Foro',
             ),
-            label: 'Foro',
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

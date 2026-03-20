@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -9,6 +8,7 @@ import '../ui/custom_button.dart';
 import '../ui/custom_card.dart';
 import '../user_context/user_context_provider.dart';
 import '../utils/nav_safe.dart';
+import '../utils/nested_flow_navigator.dart';
 
 class ComoLlegarScreen extends StatefulWidget {
   const ComoLlegarScreen({super.key});
@@ -82,18 +82,19 @@ class _ComoLlegarScreenState extends State<ComoLlegarScreen> {
     final longitude = location?['longitude'];
     final hasCoords = latitude is num && longitude is num;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Cómo llegar'),
-        leading: IconButton(
-          onPressed: () => popOrEntry(context),
-          icon: const Icon(Icons.arrow_back),
-          tooltip: 'Volver',
+    return NestedFlowNavigator(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Cómo llegar'),
+          leading: IconButton(
+            onPressed: () => popOrEntry(context),
+            icon: const Icon(Icons.arrow_back),
+            tooltip: 'Volver',
+          ),
         ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(AppSpacing.x2),
-        child: _loading
+        body: Padding(
+          padding: const EdgeInsets.all(AppSpacing.x2),
+          child: _loading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
                 children: [
@@ -167,6 +168,7 @@ class _ComoLlegarScreenState extends State<ComoLlegarScreen> {
                   ),
                 ],
               ),
+        ),
       ),
     );
   }

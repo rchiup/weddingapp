@@ -22,6 +22,9 @@ class FotosProvider extends ChangeNotifier {
   double _uploadProgress = 0;
   String? _errorMessage;
 
+  /// `true` = cuadrícula, `false` = feed vertical estilo Instagram.
+  bool _galleryGridMode = true;
+
   List<FotoModel> get photos => _photos.take(_visibleCount).toList();
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _isLoadingMore;
@@ -29,6 +32,12 @@ class FotosProvider extends ChangeNotifier {
   bool get isUploading => _isUploading;
   double get uploadProgress => _uploadProgress;
   String? get errorMessage => _errorMessage;
+  bool get galleryGridMode => _galleryGridMode;
+
+  void toggleGalleryLayout() {
+    _galleryGridMode = !_galleryGridMode;
+    notifyListeners();
+  }
 
   Future<void> loadInitial(
     String eventId, {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/nav_safe.dart';
+import '../utils/nested_flow_navigator.dart';
 
 import 'admin_export_screen.dart';
 
@@ -10,16 +11,18 @@ class AdminExportFlow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Exportar (admin)'),
-        leading: IconButton(
-          onPressed: () => popOrEntry(context),
-          icon: const Icon(Icons.arrow_back),
-          tooltip: 'Volver',
+    return NestedFlowNavigator(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Exportar (admin)'),
+          leading: IconButton(
+            onPressed: () => popOrEntry(context),
+            icon: const Icon(Icons.arrow_back),
+            tooltip: 'Volver',
+          ),
         ),
+        body: const AdminExportScreen(),
       ),
-      body: const AdminExportScreen(),
     );
   }
 }

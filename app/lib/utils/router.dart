@@ -16,6 +16,7 @@ import '../solteros/solteros_flow.dart';
 import '../solteros/solteros_dm_screen.dart';
 import '../user_context/user_context_provider.dart';
 import 'nav_safe.dart';
+import 'nested_flow_navigator.dart';
 
 /// Configuración de rutas de la aplicación
 /// 
@@ -112,16 +113,18 @@ class AppRouter {
         GoRoute(
           path: '/checkin',
           name: 'checkin',
-          builder: (context, state) => Scaffold(
-            appBar: AppBar(
-              title: const Text('Ya llegué'),
-              leading: IconButton(
-                onPressed: () => popOrEntry(context),
-                icon: const Icon(Icons.arrow_back),
-                tooltip: 'Volver',
+          builder: (context, state) => NestedFlowNavigator(
+            child: Scaffold(
+              appBar: AppBar(
+                title: const Text('Ya llegué'),
+                leading: IconButton(
+                  onPressed: () => popOrEntry(context),
+                  icon: const Icon(Icons.arrow_back),
+                  tooltip: 'Volver',
+                ),
               ),
+              body: const CheckinScreen(),
             ),
-            body: const CheckinScreen(),
           ),
         ),
         // Más rutas se agregarán aquí según se desarrollen los módulos

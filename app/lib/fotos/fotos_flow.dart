@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../ui/startup_background.dart';
 import 'fotos_export_screen.dart';
 import '../utils/nav_safe.dart';
+import '../utils/nested_flow_navigator.dart';
 import 'fotos_feed_screen.dart';
 import 'fotos_upload_screen.dart';
 import 'fotos_provider.dart';
@@ -31,7 +32,8 @@ class _FotosFlowState extends State<FotosFlow> {
 
     return ChangeNotifierProvider(
       create: (_) => FotosProvider(),
-      child: Scaffold(
+      child: NestedFlowNavigator(
+        child: Scaffold(
         backgroundColor: const Color(0xFFF4F2FF),
         appBar: AppBar(
           title: const Text('Fotos del evento'),
@@ -42,6 +44,21 @@ class _FotosFlowState extends State<FotosFlow> {
             tooltip: 'Volver',
           ),
           actions: [
+            Consumer<FotosProvider>(
+              builder: (context, fotos, _) {
+                if (_currentIndex != 0) return const SizedBox.shrink();
+                return IconButton(
+                  onPressed: fotos.toggleGalleryLayout,
+                  icon: Icon(
+                    fotos.galleryGridMode
+                        ? Icons.view_day_outlined
+                        : Icons.grid_view_rounded,
+                  ),
+                  tooltip:
+                      fotos.galleryGridMode ? 'Modo feed (tipo Instagram)' : 'Modo cuadrícula',
+                );
+              },
+            ),
             IconButton(
               onPressed: () {
                 Navigator.of(context).push(
@@ -72,6 +89,7 @@ class _FotosFlowState extends State<FotosFlow> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

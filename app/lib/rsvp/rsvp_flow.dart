@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../user_context/user_context_provider.dart';
 import '../utils/nav_safe.dart';
+import '../utils/nested_flow_navigator.dart';
 import 'rsvp_provider.dart';
 import 'rsvp_screen.dart';
 
@@ -20,16 +21,18 @@ class RsvpFlow extends StatelessWidget {
 
     return ChangeNotifierProvider(
       create: (_) => RsvpProvider()..loadRsvp(eventId: eventId, userId: userId),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Confirmar asistencia'),
-          leading: IconButton(
-            onPressed: () => popOrEntry(context),
-            icon: const Icon(Icons.arrow_back),
-            tooltip: 'Volver',
+      child: NestedFlowNavigator(
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('Confirmar asistencia'),
+            leading: IconButton(
+              onPressed: () => popOrEntry(context),
+              icon: const Icon(Icons.arrow_back),
+              tooltip: 'Volver',
+            ),
           ),
+          body: const RsvpScreen(),
         ),
-        body: const RsvpScreen(),
       ),
     );
   }

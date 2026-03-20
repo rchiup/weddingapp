@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -9,6 +8,7 @@ import '../ui/custom_button.dart';
 import '../ui/custom_card.dart';
 import '../user_context/user_context_provider.dart';
 import '../utils/nav_safe.dart';
+import '../utils/nested_flow_navigator.dart';
 import 'novios_registry_service.dart';
 
 class NoviosAdminScreen extends StatefulWidget {
@@ -225,19 +225,20 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
     final eventId = ctx.eventId ?? '';
     final isAdmin = ctx.isAdmin;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Panel de novios'),
-        leading: IconButton(
-          onPressed: () => popOrEntry(context),
-          icon: const Icon(Icons.arrow_back),
-          tooltip: 'Volver',
+    return NestedFlowNavigator(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Panel de novios'),
+          leading: IconButton(
+            onPressed: () => popOrEntry(context),
+            icon: const Icon(Icons.arrow_back),
+            tooltip: 'Volver',
+          ),
         ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(AppSpacing.x2),
-        child: ListView(
-          children: [
+        body: Padding(
+          padding: const EdgeInsets.all(AppSpacing.x2),
+          child: ListView(
+            children: [
             if (eventId.isEmpty) ...[
               CustomCard(
                 child: Column(
@@ -502,6 +503,7 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
             ],
           ],
         ),
+      ),
       ),
     );
   }
