@@ -98,19 +98,19 @@ class _EntryScreenState extends State<EntryScreen> {
               children: [
                 Expanded(
                   child: CustomButton(
-                    label: 'Ahora no',
-                    onPressed: () => Navigator.of(ctx).pop(),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.x1_5),
-                Expanded(
-                  child: CustomButton(
                     label: 'Activar',
                     icon: Icons.my_location,
                     onPressed: () async {
                       Navigator.of(ctx).pop();
                       await _tryAutoCheckin(userContext);
                     },
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.x1_5),
+                Expanded(
+                  child: CustomButton(
+                    label: 'No activar',
+                    onPressed: () => Navigator.of(ctx).pop(),
                   ),
                 ),
               ],
