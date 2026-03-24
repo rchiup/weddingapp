@@ -33,7 +33,7 @@ class _EventJoinScreenState extends State<EventJoinScreen> {
     final provider = context.watch<EventJoinProvider>();
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2, vertical: AppSpacing.x3),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2, vertical: AppSpacing.x2),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -42,39 +42,42 @@ class _EventJoinScreenState extends State<EventJoinScreen> {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.12),
+                color: AppColors.primary.withOpacity(0.10),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.favorite_rounded, color: AppColors.primary.withOpacity(0.9), size: 28),
+              child: Icon(Icons.favorite_border_rounded, color: AppColors.primary, size: 26),
             ),
           ),
           const SizedBox(height: AppSpacing.x2),
           Text(
             'Wedding App',
             textAlign: TextAlign.center,
-            style: AppTextStyles.display.copyWith(fontSize: 28),
+            style: AppTextStyles.display.copyWith(fontSize: 30, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: AppSpacing.x1),
           Text(
             'Únete al evento de alguien especial',
             textAlign: TextAlign.center,
-            style: AppTextStyles.subtitle.copyWith(fontSize: 14, height: 1.35),
+            style: AppTextStyles.subtitle.copyWith(fontSize: 15, height: 1.4),
           ),
           const SizedBox(height: AppSpacing.x3),
           Container(
-            padding: const EdgeInsets.all(AppSpacing.x2),
+            padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
             decoration: BoxDecoration(
               color: AppColors.card,
-              borderRadius: AppRadii.card,
+              borderRadius: BorderRadius.circular(20),
               boxShadow: AppShadows.soft,
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: AppColors.border.withOpacity(0.85)),
             ),
             child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Tu nombre', style: AppTextStyles.title.copyWith(fontSize: 14)),
+                  Text(
+                    'Tu nombre',
+                    style: AppTextStyles.title.copyWith(fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
                   const SizedBox(height: AppSpacing.x1),
                   TextFormField(
                     controller: _nameController,
@@ -85,7 +88,10 @@ class _EventJoinScreenState extends State<EventJoinScreen> {
                     textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: AppSpacing.x2),
-                  Text('Código del evento', style: AppTextStyles.title.copyWith(fontSize: 14)),
+                  Text(
+                    'Código del evento',
+                    style: AppTextStyles.title.copyWith(fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
                   const SizedBox(height: AppSpacing.x1),
                   TextFormField(
                     controller: _codeController,

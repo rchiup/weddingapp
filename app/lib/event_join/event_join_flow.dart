@@ -20,7 +20,10 @@ class EventJoinFlow extends StatelessWidget {
         child: Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(
-            title: Text('Unirme a un evento', style: AppTextStyles.title.copyWith(fontSize: 18)),
+            title: Text(
+              'Unirme a un evento',
+              style: AppTextStyles.title.copyWith(fontSize: 17, fontWeight: FontWeight.w700),
+            ),
             backgroundColor: AppColors.background,
             leading: IconButton(
               onPressed: () => popOrEntry(context),

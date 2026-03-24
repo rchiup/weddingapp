@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../checkin/checkin_service.dart';
+import '../event_join/event_join_provider.dart';
+import '../event_join/event_join_screen.dart';
 import '../lista_novios/novios_registry_service.dart';
 import '../solteros/solteros_service.dart';
 import '../solteros/solteros_provider.dart';
@@ -12,7 +14,6 @@ import '../ui/app_theme.dart';
 import '../ui/appear_animation.dart';
 import '../ui/custom_button.dart';
 import '../ui/custom_card.dart';
-import '../ui/startup_background.dart';
 import '../user_context/user_context_provider.dart';
 
 /// Pantalla de entrada neutral
@@ -419,6 +420,33 @@ class _EntryScreenState extends State<EntryScreen> {
     _maybeAskSingle(context, userContext);
     _maybeAskLocation(context, userContext);
 
+    if (!hasEvent) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: ChangeNotifierProvider(
+            create: (_) => EventJoinProvider(),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2, vertical: AppSpacing.x2),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight - AppSpacing.x2 * 2),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 440),
+                        child: const EventJoinScreen(),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+    }
+
     final dateLine = _eventDateLine(userContext);
     final roleLine = userContext.isAdmin ? '👑 Modo Novios' : 'Invitado';
     final subtitleHeader = [if (dateLine.isNotEmpty) dateLine, roleLine].join(' · ');
@@ -532,128 +560,63 @@ class _EntryScreenState extends State<EntryScreen> {
                 ),
               ),
             Expanded(
-              child: hasEvent
-                  ? Container(
-                      color: AppColors.background,
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 520),
-                          child: ListView(
-                            padding: const EdgeInsets.fromLTRB(
-                              AppSpacing.x2,
-                              AppSpacing.x2,
-                              AppSpacing.x2,
-                              AppSpacing.x3,
+              child: Container(
+                color: AppColors.background,
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 560),
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.x2,
+                        AppSpacing.x2,
+                        AppSpacing.x2,
+                        AppSpacing.x3,
+                      ),
+                      physics: const BouncingScrollPhysics(),
+                      children: [
+                        LayoutBuilder(
+                          builder: (context, c) {
+                            final w = c.maxWidth;
+                            final cross = w >= 520 ? 3 : 2;
+                            final ratio = w >= 520 ? 1.05 : 1.0;
+                            return GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: menuItems.length,
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: cross,
+                                mainAxisSpacing: 12,
+                                crossAxisSpacing: 12,
+                                childAspectRatio: ratio,
+                              ),
+                              itemBuilder: (context, i) {
+                                final item = menuItems[i];
+                                return StaggerAppear(
+                                  index: i,
+                                  child: _MenuGridCard(item: item),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                        const SizedBox(height: AppSpacing.x2),
+                        const Divider(),
+                        const SizedBox(height: AppSpacing.x1),
+                        Center(
+                          child: TextButton.icon(
+                            onPressed: () => _confirmExitEvent(context, userContext),
+                            icon: const Icon(Icons.logout_rounded, size: 20),
+                            label: const Text('Salir del evento'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.textMuted,
                             ),
-                            physics: const BouncingScrollPhysics(),
-                            children: [
-                              LayoutBuilder(
-                                builder: (context, c) {
-                                  final w = c.maxWidth;
-                                  final cross = w >= 340 ? 2 : 2;
-                                  return GridView.builder(
-                                    shrinkWrap: true,
-                                    physics: const NeverScrollableScrollPhysics(),
-                                    itemCount: menuItems.length,
-                                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: cross,
-                                      mainAxisSpacing: 12,
-                                      crossAxisSpacing: 12,
-                                      childAspectRatio: 0.92,
-                                    ),
-                                    itemBuilder: (context, i) {
-                                      final item = menuItems[i];
-                                      return StaggerAppear(
-                                        index: i,
-                                        child: _MenuGridCard(item: item),
-                                      );
-                                    },
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: AppSpacing.x2),
-                              const Divider(),
-                              const SizedBox(height: AppSpacing.x1),
-                              Center(
-                                child: TextButton.icon(
-                                  onPressed: () => _confirmExitEvent(context, userContext),
-                                  icon: const Icon(Icons.logout_rounded, size: 20),
-                                  label: const Text('Salir del evento'),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: AppColors.textMuted,
-                                  ),
-                                ),
-                              ),
-                            ],
                           ),
                         ),
-                      ),
-                    )
-                  : StartupBackground(
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 520),
-                          child: ListView(
-                            padding: const EdgeInsets.fromLTRB(
-                              AppSpacing.x2,
-                              AppSpacing.x2,
-                              AppSpacing.x2,
-                              AppSpacing.x3,
-                            ),
-                            physics: const BouncingScrollPhysics(),
-                            children: [
-                              Text(
-                                'Hola',
-                                style: AppTextStyles.display.copyWith(fontSize: 30),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Únete con tu código para fotos, llegadas y más.',
-                                style: AppTextStyles.subtitle.copyWith(fontSize: 14, height: 1.35),
-                              ),
-                              const SizedBox(height: AppSpacing.x2),
-                              const StartupSectionLabel(text: 'Comenzar', denseTop: true),
-                              CustomCard(
-                                onTap: () => context.push('/event_join'),
-                                elevated: true,
-                                padding: const EdgeInsets.all(AppSpacing.x2),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 48,
-                                      height: 48,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.primary.withOpacity(0.12),
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      child: const Icon(Icons.qr_code_2_rounded, color: AppColors.primary),
-                                    ),
-                                    const SizedBox(width: AppSpacing.x1_5),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Unirme a un evento',
-                                            style: AppTextStyles.title.copyWith(fontSize: 16),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Código que te dieron los novios',
-                                            style: AppTextStyles.subtitle,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Icon(Icons.chevron_right, color: AppColors.textPrimary.withOpacity(0.3)),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                      ],
                     ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),

@@ -5,7 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 class AppColors {
   static const primary = Color(0xFFC45C5C);
   static const primaryDark = Color(0xFF9A4545);
-  static const background = Color(0xFFFDF8F6);
+  /// Fondo landing “Lovable” (join)
+  static const background = Color(0xFFFDF8F7);
   static const blush = Color(0xFFFFF5F3);
   static const textPrimary = Color(0xFF2D2424);
   static const textMuted = Color(0xFF7A6F6F);
