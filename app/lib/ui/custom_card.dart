@@ -28,7 +28,7 @@ class CustomCard extends StatelessWidget {
         borderRadius: AppRadii.card,
         boxShadow: elevated ? AppShadows.lift : AppShadows.soft,
         border: Border.all(
-          color: elevated ? AppColors.primary.withOpacity(0.06) : AppColors.border,
+          color: elevated ? AppColors.primary.withOpacity(0.08) : AppColors.border,
         ),
       ),
       child: child,

@@ -221,9 +221,16 @@ class _CheckinScreenState extends State<CheckinScreen> {
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.x2),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (_done) ...[
+            Text(
+              '${_arrivals.length} ${_arrivals.length == 1 ? 'persona' : 'personas'}',
+              style: AppTextStyles.subtitle,
+            ),
+            const SizedBox(height: AppSpacing.x1_5),
+          ],
           if (!_done) ...[
             CustomCard(
               child: Column(

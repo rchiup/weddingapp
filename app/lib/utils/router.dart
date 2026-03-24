@@ -14,6 +14,7 @@ import '../lista_novios/novios_admin_screen.dart';
 import '../rsvp/rsvp_flow.dart';
 import '../solteros/solteros_flow.dart';
 import '../solteros/solteros_dm_screen.dart';
+import '../ui/app_theme.dart';
 import '../user_context/user_context_provider.dart';
 import 'nav_safe.dart';
 import 'nested_flow_navigator.dart';
@@ -115,8 +116,13 @@ class AppRouter {
           name: 'checkin',
           builder: (context, state) => NestedFlowNavigator(
             child: Scaffold(
+              backgroundColor: AppColors.background,
               appBar: AppBar(
-                title: const Text('Ya llegué'),
+                title: Text(
+                  '🎉 ¿Quién llegó?',
+                  style: AppTextStyles.displaySmall.copyWith(fontSize: 20),
+                ),
+                backgroundColor: AppColors.background,
                 leading: IconButton(
                   onPressed: () => popOrEntry(context),
                   icon: const Icon(Icons.arrow_back),

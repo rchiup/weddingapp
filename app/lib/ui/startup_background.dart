@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
 
-/// Fondo full-screen estilo producto tech: gradiente suave + halos de marca.
-/// Usar detrás del contenido principal (menú, onboarding, etc.).
+/// Fondo suave tipo invitación / producto boda.
 class StartupBackground extends StatelessWidget {
   final Widget child;
 
@@ -20,36 +19,28 @@ class StartupBackground extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFFF4F2FF),
+                AppColors.blush,
                 AppColors.background,
-                Color(0xFFEEF6FF),
+                Color(0xFFF5EDE8),
               ],
-              stops: [0.0, 0.42, 1.0],
+              stops: [0.0, 0.45, 1.0],
             ),
           ),
         ),
         Positioned(
-          top: -100,
-          right: -80,
+          top: -90,
+          right: -70,
+          child: _glowBlob(
+            size: 240,
+            color: AppColors.primary.withOpacity(0.10),
+          ),
+        ),
+        Positioned(
+          bottom: 30,
+          left: -90,
           child: _glowBlob(
             size: 260,
-            color: AppColors.primary.withOpacity(0.14),
-          ),
-        ),
-        Positioned(
-          bottom: 40,
-          left: -100,
-          child: _glowBlob(
-            size: 280,
-            color: const Color(0xFF6366F1).withOpacity(0.10),
-          ),
-        ),
-        Positioned(
-          top: MediaQuery.sizeOf(context).height * 0.35,
-          right: -40,
-          child: _glowBlob(
-            size: 120,
-            color: AppColors.primary.withOpacity(0.06),
+            color: AppColors.accentHeaderEnd.withOpacity(0.12),
           ),
         ),
         child,
@@ -74,7 +65,7 @@ class StartupBackground extends StatelessWidget {
   }
 }
 
-/// Título de sección tipo dashboard (mayúsculas, tracking).
+/// Etiqueta de sección discreta.
 class StartupSectionLabel extends StatelessWidget {
   final String text;
   final bool denseTop;
@@ -94,7 +85,7 @@ class StartupSectionLabel extends StatelessWidget {
         style: AppTextStyles.subtitle.copyWith(
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          letterSpacing: 1.15,
+          letterSpacing: 1.1,
           color: AppColors.primary.withOpacity(0.55),
         ),
       ),

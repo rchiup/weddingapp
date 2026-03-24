@@ -12,11 +12,13 @@ class MesasProvider extends ChangeNotifier {
   String? _error;
   MesaModel? _currentTable;
   List<GuestModel> _guestResults = [];
+  List<GuestModel> _allGuests = [];
 
   bool get isLoading => _isLoading;
   String? get error => _error;
   MesaModel? get currentTable => _currentTable;
   List<GuestModel> get guestResults => _guestResults;
+  List<GuestModel> get allGuests => _allGuests;
 
   Future<MesaModel?> findTableByNumber(String eventId, String tableNumber) async {
     _setLoading(true);
@@ -53,6 +55,19 @@ class MesasProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> loadAllGuests(String eventId) async {
+    _setLoading(true);
+    _error = null;
+    try {
+      _allGuests = await _service.getAllGuests(eventId);
+      _setLoading(false);
+    } catch (e) {
+      _error = e.toString();
+      _allGuests = [];
+      _setLoading(false);
+    }
+  }
+
   Future<void> searchGuests(String eventId, String query) async {
     _setLoading(true);
     _error = null;
@@ -67,6 +82,7 @@ class MesasProvider extends ChangeNotifier {
 
   void clearResults() {
     _guestResults = [];
+    _allGuests = [];
     _currentTable = null;
     notifyListeners();
   }

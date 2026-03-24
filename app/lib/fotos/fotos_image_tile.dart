@@ -61,6 +61,35 @@ class _FotosImageTileState extends State<FotosImageTile> {
             ? widget.photo.uploadedByName
             : fallbackName);
 
+    final isGrid = widget.layout == FotosGalleryTileLayout.grid;
+
+    Widget metricsPills() {
+      return FutureBuilder<({int count, bool userLiked})?>(
+        future: _likesFuture,
+        builder: (_, likeSnap) {
+          return FutureBuilder<int>(
+            future: _commentsCountFuture,
+            builder: (_, comSnap) {
+              final likes = likeSnap.connectionState == ConnectionState.waiting
+                  ? '—'
+                  : '${likeSnap.data?.count ?? 0}';
+              final com = comSnap.connectionState == ConnectionState.waiting
+                  ? '—'
+                  : '${comSnap.data ?? 0}';
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _pill(Icons.favorite_rounded, likes),
+                  const SizedBox(width: 6),
+                  _pill(Icons.chat_bubble_outline_rounded, com),
+                ],
+              );
+            },
+          );
+        },
+      );
+    }
+
     return GestureDetector(
       onTap: () async {
         final deleted = await Navigator.of(context).push<bool>(
@@ -73,7 +102,6 @@ class _FotosImageTileState extends State<FotosImageTile> {
         );
         if (!mounted) return;
         if (deleted == true) {
-          // Recargar el grid para que desaparezca al instante.
           final viewerId = context.read<UserContextProvider>().userId ?? '';
           final includePrivate = context.read<UserContextProvider>().isAdmin;
           context.read<FotosProvider>().refresh(
@@ -114,6 +142,12 @@ class _FotosImageTileState extends State<FotosImageTile> {
                         return const Center(child: CircularProgressIndicator());
                       },
                     ),
+                    if (isGrid)
+                      Positioned(
+                        left: 8,
+                        bottom: 8,
+                        child: metricsPills(),
+                      ),
                     if (widget.photo.visibility.toLowerCase() == 'novios')
                       Positioned(
                         top: 10,
@@ -132,62 +166,82 @@ class _FotosImageTileState extends State<FotosImageTile> {
               ),
             ),
           ),
-          SizedBox(height: widget.layout == FotosGalleryTileLayout.feed ? AppSpacing.x1_5 : AppSpacing.x1),
-          Text(
-            'Subido por: $uploadedByName',
-            style: TextStyle(
-              fontSize: widget.layout == FotosGalleryTileLayout.feed ? 13 : 11,
-              color: Colors.grey.shade700,
-              fontWeight: widget.layout == FotosGalleryTileLayout.feed ? FontWeight.w600 : null,
+          if (!isGrid) ...[
+            SizedBox(height: widget.layout == FotosGalleryTileLayout.feed ? AppSpacing.x1_5 : AppSpacing.x1),
+            Text(
+              'Subido por: $uploadedByName',
+              style: TextStyle(
+                fontSize: widget.layout == FotosGalleryTileLayout.feed ? 13 : 11,
+                color: Colors.grey.shade700,
+                fontWeight: widget.layout == FotosGalleryTileLayout.feed ? FontWeight.w600 : null,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          Row(
-            children: [
-              Icon(
-                Icons.favorite_border,
-                size: widget.layout == FotosGalleryTileLayout.feed ? 18 : 14,
-                color: AppColors.textPrimary.withOpacity(0.45),
-              ),
-              const SizedBox(width: 4),
-              FutureBuilder<({int count, bool userLiked})?>(
-                future: _likesFuture,
-                builder: (_, snap) {
-                  final text = snap.connectionState == ConnectionState.waiting
-                      ? '—'
-                      : '${snap.data?.count ?? 0}';
-                  return Text(
-                    text,
-                    style: AppTextStyles.subtitle.copyWith(
-                      fontSize: widget.layout == FotosGalleryTileLayout.feed ? 14 : 12,
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: AppSpacing.x1_5),
-              Icon(
-                Icons.chat_bubble_outline,
-                size: widget.layout == FotosGalleryTileLayout.feed ? 18 : 14,
-                color: AppColors.textPrimary.withOpacity(0.45),
-              ),
-              const SizedBox(width: 4),
-              FutureBuilder<int>(
-                future: _commentsCountFuture,
-                builder: (_, snap) {
-                  final text = snap.connectionState == ConnectionState.waiting
-                      ? '—'
-                      : '${snap.data ?? 0}';
-                  return Text(
-                    text,
-                    style: AppTextStyles.subtitle.copyWith(
-                      fontSize: widget.layout == FotosGalleryTileLayout.feed ? 14 : 12,
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
+            Row(
+              children: [
+                Icon(
+                  Icons.favorite_border,
+                  size: widget.layout == FotosGalleryTileLayout.feed ? 18 : 14,
+                  color: AppColors.textPrimary.withOpacity(0.45),
+                ),
+                const SizedBox(width: 4),
+                FutureBuilder<({int count, bool userLiked})?>(
+                  future: _likesFuture,
+                  builder: (_, snap) {
+                    final text = snap.connectionState == ConnectionState.waiting
+                        ? '—'
+                        : '${snap.data?.count ?? 0}';
+                    return Text(
+                      text,
+                      style: AppTextStyles.subtitle.copyWith(
+                        fontSize: widget.layout == FotosGalleryTileLayout.feed ? 14 : 12,
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: AppSpacing.x1_5),
+                Icon(
+                  Icons.chat_bubble_outline,
+                  size: widget.layout == FotosGalleryTileLayout.feed ? 18 : 14,
+                  color: AppColors.textPrimary.withOpacity(0.45),
+                ),
+                const SizedBox(width: 4),
+                FutureBuilder<int>(
+                  future: _commentsCountFuture,
+                  builder: (_, snap) {
+                    final text = snap.connectionState == ConnectionState.waiting
+                        ? '—'
+                        : '${snap.data ?? 0}';
+                    return Text(
+                      text,
+                      style: AppTextStyles.subtitle.copyWith(
+                        fontSize: widget.layout == FotosGalleryTileLayout.feed ? 14 : 12,
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _pill(IconData icon, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.45),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 4),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
         ],
       ),
     );

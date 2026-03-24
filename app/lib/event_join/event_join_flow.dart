@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../ui/app_theme.dart';
+import '../ui/startup_background.dart';
 import '../utils/nav_safe.dart';
 import '../utils/nested_flow_navigator.dart';
 import 'event_join_provider.dart';
@@ -16,15 +18,19 @@ class EventJoinFlow extends StatelessWidget {
       create: (_) => EventJoinProvider(),
       child: NestedFlowNavigator(
         child: Scaffold(
+          backgroundColor: AppColors.background,
           appBar: AppBar(
-            title: const Text('Unirme a un evento'),
+            title: Text('Unirme a un evento', style: AppTextStyles.title.copyWith(fontSize: 18)),
+            backgroundColor: AppColors.background,
             leading: IconButton(
               onPressed: () => popOrEntry(context),
               icon: const Icon(Icons.arrow_back),
               tooltip: 'Volver',
             ),
           ),
-          body: const EventJoinScreen(),
+          body: const StartupBackground(
+            child: SafeArea(child: EventJoinScreen()),
+          ),
         ),
       ),
     );

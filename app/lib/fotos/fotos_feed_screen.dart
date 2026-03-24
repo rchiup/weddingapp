@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../user_context/user_context_provider.dart';
 import '../ui/app_theme.dart';
+import '../ui/appear_animation.dart';
+import '../ui/custom_button.dart';
+import '../user_context/user_context_provider.dart';
 import 'fotos_image_tile.dart';
 import 'fotos_provider.dart';
 
 /// Feed de fotos persistentes con paginación
 class FotosFeedScreen extends StatefulWidget {
-  const FotosFeedScreen({super.key});
+  final VoidCallback onUploadTap;
+
+  const FotosFeedScreen({super.key, required this.onUploadTap});
 
   @override
   State<FotosFeedScreen> createState() => _FotosFeedScreenState();
@@ -72,53 +76,101 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
     return RefreshIndicator(
       onRefresh: () =>
           provider.refresh(eventId, viewerId: viewerId, includePrivate: includePrivate),
-      child: useGrid
-          ? Padding(
-              padding: const EdgeInsets.all(AppSpacing.x2),
-              child: GridView.builder(
-                controller: _scrollController,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: AppSpacing.x1_5,
-                  crossAxisSpacing: AppSpacing.x1_5,
-                ),
-                itemCount: provider.photos.length + (provider.hasMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index >= provider.photos.length) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  final photo = provider.photos[index];
-                  return FotosImageTile(photo: photo, eventId: eventId);
-                },
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.x2,
+              AppSpacing.x2,
+              AppSpacing.x2,
+              AppSpacing.x1,
+            ),
+            sliver: SliverToBoxAdapter(
+              child: CustomButton(
+                label: 'Subir foto',
+                icon: Icons.upload_rounded,
+                onPressed: widget.onUploadTap,
               ),
-            )
-          : ListView.builder(
-              controller: _scrollController,
+            ),
+          ),
+          if (useGrid)
+            SliverPadding(
               padding: const EdgeInsets.fromLTRB(
                 AppSpacing.x2,
-                AppSpacing.x2,
+                0,
                 AppSpacing.x2,
                 AppSpacing.x3,
               ),
-              itemCount: provider.photos.length + (provider.hasMore ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index >= provider.photos.length) {
-                  return const Padding(
-                    padding: EdgeInsets.all(AppSpacing.x3),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-                final photo = provider.photos[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.x2),
-                  child: FotosImageTile(
-                    photo: photo,
-                    eventId: eventId,
-                    layout: FotosGalleryTileLayout.feed,
-                  ),
-                );
-              },
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 0.85,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    if (index >= provider.photos.length) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
+                    final photo = provider.photos[index];
+                    return StaggerAppear(
+                      index: index,
+                      child: FotosImageTile(
+                        photo: photo,
+                        eventId: eventId,
+                      ),
+                    );
+                  },
+                  childCount: provider.photos.length + (provider.hasMore ? 1 : 0),
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.x2,
+                AppSpacing.x1,
+                AppSpacing.x2,
+                AppSpacing.x3,
+              ),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    if (index >= provider.photos.length) {
+                      return const Padding(
+                        padding: EdgeInsets.all(AppSpacing.x3),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    final photo = provider.photos[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.x2),
+                      child: StaggerAppear(
+                        index: index,
+                        child: FotosImageTile(
+                          photo: photo,
+                          eventId: eventId,
+                          layout: FotosGalleryTileLayout.feed,
+                        ),
+                      ),
+                    );
+                  },
+                  childCount: provider.photos.length + (provider.hasMore ? 1 : 0),
+                ),
+              ),
             ),
+        ],
+      ),
     );
   }
 }

@@ -227,8 +227,15 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
 
     return NestedFlowNavigator(
       child: Scaffold(
+        backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: const Text('Panel de novios'),
+          backgroundColor: AppColors.background,
+          title: Row(
+            children: [
+              const Text('👰🤵 '),
+              Text('Panel de novios', style: AppTextStyles.displaySmall.copyWith(fontSize: 18)),
+            ],
+          ),
           leading: IconButton(
             onPressed: () => popOrEntry(context),
             icon: const Icon(Icons.arrow_back),
@@ -274,11 +281,41 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
                   ),
                 ),
               ] else ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(AppSpacing.x2),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.10),
+                    borderRadius: AppRadii.card,
+                    border: Border.all(color: AppColors.primary.withOpacity(0.15)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.workspace_premium_rounded, color: AppColors.primaryDark, size: 22),
+                      const SizedBox(width: AppSpacing.x1_5),
+                      Expanded(
+                        child: Text(
+                          'Aquí puedes configurar la información que verán tus invitados.',
+                          style: AppTextStyles.subtitle.copyWith(
+                            color: AppColors.textPrimary,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.x2),
                 CustomCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Lista de regalos', style: AppTextStyles.title),
+                      Row(
+                        children: [
+                          const Text('🎁 ', style: TextStyle(fontSize: 18)),
+                          Text('Lista de regalos', style: AppTextStyles.title),
+                        ],
+                      ),
                       const SizedBox(height: AppSpacing.x1),
                       Text(
                         'Pega el link de la lista de regalos (Falabella/Paris/Ripley o cualquier URL).',
@@ -311,7 +348,12 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Ubicación del evento', style: AppTextStyles.title),
+                      Row(
+                        children: [
+                          const Text('📍 ', style: TextStyle(fontSize: 18)),
+                          Text('Ubicación del evento', style: AppTextStyles.title),
+                        ],
+                      ),
                       const SizedBox(height: AppSpacing.x1),
                       Text(
                         'Busca el lugar, toca el mapa o ajusta las coordenadas manualmente.',

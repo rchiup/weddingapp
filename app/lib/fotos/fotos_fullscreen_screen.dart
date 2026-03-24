@@ -564,25 +564,39 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isWide = screenWidth >= 760;
 
-    return Scaffold(
+    return Theme(
+      data: Theme.of(context).copyWith(
+        scaffoldBackgroundColor: AppColors.darkViewerBg,
+        appBarTheme: const AppBarTheme(
+          elevation: 0,
+          backgroundColor: AppColors.darkViewerBg,
+          foregroundColor: Colors.white,
+          iconTheme: IconThemeData(color: Colors.white),
+        ),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      child: Scaffold(
+      backgroundColor: AppColors.darkViewerBg,
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        backgroundColor: AppColors.darkViewerBg,
+        foregroundColor: Colors.white,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
           tooltip: 'Volver',
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title: const Text('Foto'),
+        title: Text('Foto', style: AppTextStyles.title.copyWith(color: Colors.white)),
         actions: [
           IconButton(
             tooltip: 'Descargar',
-            icon: const Icon(Icons.download_outlined),
+            icon: const Icon(Icons.download_outlined, color: Colors.white),
             onPressed: _downloadCurrentPhoto,
           ),
           if (userContext.isAdmin)
             IconButton(
               tooltip: 'Eliminar foto',
-              icon: const Icon(Icons.delete_outline),
+              icon: const Icon(Icons.delete_outline, color: Color(0xFFFF8A8A)),
               onPressed: () async {
                 final ok = await showDialog<bool>(
                   context: context,
@@ -706,6 +720,7 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                 ),
               ],
             ),
+      ),
     );
   }
 }

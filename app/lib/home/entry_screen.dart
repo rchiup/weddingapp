@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../checkin/checkin_service.dart';
@@ -8,6 +9,7 @@ import '../lista_novios/novios_registry_service.dart';
 import '../solteros/solteros_service.dart';
 import '../solteros/solteros_provider.dart';
 import '../ui/app_theme.dart';
+import '../ui/appear_animation.dart';
 import '../ui/custom_button.dart';
 import '../ui/custom_card.dart';
 import '../ui/startup_background.dart';
@@ -32,6 +34,42 @@ class _EntryScreenState extends State<EntryScreen> {
   final CheckinService _checkinService = CheckinService();
   final NoviosRegistryService _registryService = NoviosRegistryService();
   static const double _autoCheckinRadiusMeters = 250;
+  String? _trackedEventId;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final id = context.read<UserContextProvider>().eventId;
+    if (id != _trackedEventId) {
+      _trackedEventId = id;
+      _nameDialogShown = false;
+      _singleDialogShown = false;
+      _locationDialogShown = false;
+    }
+  }
+
+  String _eventDateLine(UserContextProvider ctx) {
+    final d = ctx.eventDate;
+    if (d == null) return '';
+    return DateFormat('yyyy-MM-dd').format(d);
+  }
+
+  Future<void> _confirmExitEvent(BuildContext context, UserContextProvider userContext) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Salir del evento'),
+        content: const Text('¿Volver al inicio? Podrás ingresar de nuevo con el código.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Salir')),
+        ],
+      ),
+    );
+    if (ok == true && context.mounted) {
+      await userContext.clearEvent();
+    }
+  }
 
   void _maybeAskName(BuildContext context, UserContextProvider userContext) {
     final hasEvent = userContext.eventId != null && userContext.eventId!.isNotEmpty;
@@ -373,6 +411,7 @@ class _EntryScreenState extends State<EntryScreen> {
   @override
   Widget build(BuildContext context) {
     final userContext = context.watch<UserContextProvider>();
+    final solteros = context.watch<SolterosProvider>();
     final hasEvent = userContext.eventId != null && userContext.eventId!.isNotEmpty;
     final eventId = userContext.eventId ?? '';
     final disableTablesForEvent = eventId.toUpperCase() == 'CAROYNONI';
@@ -380,205 +419,310 @@ class _EntryScreenState extends State<EntryScreen> {
     _maybeAskSingle(context, userContext);
     _maybeAskLocation(context, userContext);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F2FF),
-      appBar: AppBar(
-        title: const Text('Bienvenido'),
-        backgroundColor: const Color(0xFFF4F2FF),
+    final dateLine = _eventDateLine(userContext);
+    final roleLine = userContext.isAdmin ? '👑 Modo Novios' : 'Invitado';
+    final subtitleHeader = [if (dateLine.isNotEmpty) dateLine, roleLine].join(' · ');
+
+    final menuItems = <_MenuItem>[
+      _MenuItem(
+        emoji: '📸',
+        icon: Icons.photo_camera_outlined,
+        label: 'Fotos del evento',
+        onTap: () => context.push('/fotos'),
       ),
-      body: StartupBackground(
-        child: SafeArea(
-          top: false,
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.x2,
-                  AppSpacing.x1,
-                  AppSpacing.x2,
-                  AppSpacing.x3,
-                ),
-                physics: const BouncingScrollPhysics(),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4, right: 4, bottom: AppSpacing.x2),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          hasEvent
-                              ? (userContext.eventName ?? 'Tu evento')
-                              : 'Hola',
-                          style: AppTextStyles.title.copyWith(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
-                            height: 1.12,
-                            letterSpacing: -0.6,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          hasEvent
-                              ? 'Todo lo del evento en un solo lugar.'
-                              : 'Únete con tu código para fotos, llegadas y más.',
-                          style: AppTextStyles.subtitle.copyWith(
-                            fontSize: 14,
-                            height: 1.35,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const StartupSectionLabel(text: 'Comenzar', denseTop: true),
-                  _EntryCard(
-                    title: 'Unirme a un evento',
-                    subtitle: 'Ingresa un código o escanea un QR',
-                    icon: Icons.qr_code_2,
-                    onTap: () => context.push('/event_join'),
-                  ),
-                  if (hasEvent) ...[
-                    const StartupSectionLabel(text: 'Menú del evento'),
-                    const SizedBox(height: AppSpacing.x1),
-                    _EntryCard(
-                      title: '📸 Fotos del evento',
-                      subtitle: 'Ver y subir fotos del evento',
-                      icon: Icons.photo_library_outlined,
-                      onTap: () => context.push('/fotos'),
-                      enabled: true,
-                    ),
-                    const SizedBox(height: AppSpacing.x2),
-                    _EntryCard(
-                      title: '🎉 Ver quién llegó',
-                      subtitle: 'Entra para ver quién ya llegó',
-                      icon: Icons.celebration_outlined,
-                      onTap: () => context.push('/checkin'),
-                      enabled: true,
-                    ),
-                    const SizedBox(height: AppSpacing.x2),
-                    _EntryCard(
-                      title: '🗺️ Cómo llegar',
-                      subtitle: 'Abrir Waze con la ubicación del evento',
-                      icon: Icons.directions_outlined,
-                      onTap: () => context.push('/como_llegar'),
-                      enabled: true,
-                    ),
-                    if (userContext.isSingleForCurrentEvent) ...[
-                      const SizedBox(height: AppSpacing.x2),
-                      Consumer<SolterosProvider>(
-                        builder: (context, solteros, _) {
-                          return _EntryCard(
-                            title: '💘 Solteros',
-                            subtitle: 'Lista, chats y foro de solteros del evento',
-                            icon: Icons.favorite_border,
-                            onTap: () => context.push('/solteros/chats'),
-                            enabled: true,
-                            showBadge: solteros.hasAnyUnread,
-                          );
-                        },
-                      ),
+      _MenuItem(
+        emoji: '🎉',
+        icon: Icons.celebration_outlined,
+        label: 'Ver quién llegó',
+        onTap: () => context.push('/checkin'),
+      ),
+      _MenuItem(
+        emoji: '🗺️',
+        icon: Icons.place_outlined,
+        label: 'Cómo llegar',
+        onTap: () => context.push('/como_llegar'),
+      ),
+      if (userContext.isSingleForCurrentEvent)
+        _MenuItem(
+          emoji: '💘',
+          icon: Icons.favorite_border,
+          label: 'Solteros',
+          onTap: () => context.push('/solteros/chats'),
+          showBadge: solteros.hasAnyUnread,
+        ),
+      _MenuItem(
+        emoji: '👥',
+        icon: Icons.people_outline,
+        label: 'Invitados',
+        onTap: disableTablesForEvent ? null : () => context.push('/mesas'),
+        enabled: !disableTablesForEvent,
+      ),
+      _MenuItem(
+        emoji: '🎁',
+        icon: Icons.card_giftcard_outlined,
+        label: 'Lista de novios',
+        onTap: () => context.push('/lista_novios'),
+      ),
+      if (userContext.isAdmin)
+        _MenuItem(
+          emoji: '👰🤵',
+          icon: Icons.workspace_premium_outlined,
+          label: 'Panel de novios',
+          onTap: () => context.push('/novios_admin'),
+        ),
+    ];
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (hasEvent)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(AppSpacing.x2, 28, AppSpacing.x2, 22),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.accentHeaderStart,
+                      AppColors.accentHeaderEnd,
                     ],
-                    const SizedBox(height: AppSpacing.x2),
-                    _EntryCard(
-                      title: '👥 Invitados',
-                      subtitle: disableTablesForEvent
-                          ? 'No aplica para este evento'
-                          : 'Buscar mesa e invitados',
-                      icon: Icons.people_outline,
-                      onTap: () => context.push('/mesas'),
-                      enabled: !disableTablesForEvent,
+                  ),
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x33000000),
+                      blurRadius: 18,
+                      offset: Offset(0, 8),
                     ),
-                    const SizedBox(height: AppSpacing.x2),
-                    _EntryCard(
-                      title: '🎁 Lista de novios',
-                      subtitle: 'Ver lista de regalos',
-                      icon: Icons.card_giftcard_outlined,
-                      onTap: () => context.push('/lista_novios'),
-                      enabled: true,
-                    ),
-                    if (userContext.isAdmin) ...[
-                      const SizedBox(height: AppSpacing.x2),
-                      _EntryCard(
-                        title: '👰🤵 Panel de novios',
-                        subtitle: 'Editar link de la lista',
-                        icon: Icons.admin_panel_settings_outlined,
-                        onTap: () => context.push('/novios_admin'),
-                        enabled: true,
-                      ),
-                    ],
                   ],
-                ],
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      userContext.eventName ?? 'Tu evento',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.display.copyWith(
+                        color: Colors.white,
+                        fontSize: 22,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black26,
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      subtitleHeader,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.94),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+            Expanded(
+              child: hasEvent
+                  ? Container(
+                      color: AppColors.background,
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 520),
+                          child: ListView(
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.x2,
+                              AppSpacing.x2,
+                              AppSpacing.x2,
+                              AppSpacing.x3,
+                            ),
+                            physics: const BouncingScrollPhysics(),
+                            children: [
+                              LayoutBuilder(
+                                builder: (context, c) {
+                                  final w = c.maxWidth;
+                                  final cross = w >= 340 ? 2 : 2;
+                                  return GridView.builder(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    itemCount: menuItems.length,
+                                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: cross,
+                                      mainAxisSpacing: 12,
+                                      crossAxisSpacing: 12,
+                                      childAspectRatio: 0.92,
+                                    ),
+                                    itemBuilder: (context, i) {
+                                      final item = menuItems[i];
+                                      return StaggerAppear(
+                                        index: i,
+                                        child: _MenuGridCard(item: item),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: AppSpacing.x2),
+                              const Divider(),
+                              const SizedBox(height: AppSpacing.x1),
+                              Center(
+                                child: TextButton.icon(
+                                  onPressed: () => _confirmExitEvent(context, userContext),
+                                  icon: const Icon(Icons.logout_rounded, size: 20),
+                                  label: const Text('Salir del evento'),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.textMuted,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  : StartupBackground(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 520),
+                          child: ListView(
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.x2,
+                              AppSpacing.x2,
+                              AppSpacing.x2,
+                              AppSpacing.x3,
+                            ),
+                            physics: const BouncingScrollPhysics(),
+                            children: [
+                              Text(
+                                'Hola',
+                                style: AppTextStyles.display.copyWith(fontSize: 30),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Únete con tu código para fotos, llegadas y más.',
+                                style: AppTextStyles.subtitle.copyWith(fontSize: 14, height: 1.35),
+                              ),
+                              const SizedBox(height: AppSpacing.x2),
+                              const StartupSectionLabel(text: 'Comenzar', denseTop: true),
+                              CustomCard(
+                                onTap: () => context.push('/event_join'),
+                                elevated: true,
+                                padding: const EdgeInsets.all(AppSpacing.x2),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 48,
+                                      height: 48,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary.withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: const Icon(Icons.qr_code_2_rounded, color: AppColors.primary),
+                                    ),
+                                    const SizedBox(width: AppSpacing.x1_5),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Unirme a un evento',
+                                            style: AppTextStyles.title.copyWith(fontSize: 16),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Código que te dieron los novios',
+                                            style: AppTextStyles.subtitle,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Icon(Icons.chevron_right, color: AppColors.textPrimary.withOpacity(0.3)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _EntryCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
+class _MenuItem {
+  final String emoji;
   final IconData icon;
-  final VoidCallback onTap;
+  final String label;
+  final VoidCallback? onTap;
   final bool enabled;
   final bool showBadge;
 
-  const _EntryCard({
-    required this.title,
-    required this.subtitle,
+  _MenuItem({
+    required this.emoji,
     required this.icon,
-    required this.onTap,
+    required this.label,
+    this.onTap,
     this.enabled = true,
     this.showBadge = false,
   });
+}
+
+class _MenuGridCard extends StatelessWidget {
+  final _MenuItem item;
+
+  const _MenuGridCard({required this.item});
 
   @override
   Widget build(BuildContext context) {
+    final enabled = item.enabled && item.onTap != null;
     return Stack(
       clipBehavior: Clip.none,
       children: [
         CustomCard(
-          onTap: enabled ? onTap : null,
+          onTap: enabled ? item.onTap : null,
           elevated: enabled,
-          padding: const EdgeInsets.all(AppSpacing.x2),
-          child: Row(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x1_5, vertical: AppSpacing.x2),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: enabled ? AppColors.primary.withOpacity(0.10) : Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(icon, color: enabled ? AppColors.primary : Colors.grey),
+              Text(item.emoji, style: const TextStyle(fontSize: 26)),
+              const SizedBox(height: AppSpacing.x1),
+              Icon(
+                item.icon,
+                size: 32,
+                color: enabled ? AppColors.gridIconTint : Colors.grey.shade400,
               ),
-              const SizedBox(width: AppSpacing.x1_5),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: AppTextStyles.title.copyWith(fontSize: 16),
-                    ),
-                    const SizedBox(height: AppSpacing.x1),
-                    Text(
-                      subtitle,
-                      style: AppTextStyles.subtitle,
-                    ),
-                  ],
+              const SizedBox(height: AppSpacing.x1_5),
+              Text(
+                item.label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.title.copyWith(
+                  fontSize: 13.5,
+                  color: enabled ? AppColors.textPrimary : Colors.grey.shade500,
                 ),
               ),
-              Icon(Icons.chevron_right, color: enabled ? AppColors.textPrimary.withOpacity(0.35) : Colors.grey),
             ],
           ),
         ),
-        if (showBadge)
+        if (item.showBadge)
           Positioned(
-            top: 8,
-            right: 8,
+            top: 10,
+            right: 10,
             child: Container(
               width: 10,
               height: 10,

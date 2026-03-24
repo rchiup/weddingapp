@@ -66,4 +66,26 @@ class MesasService {
         .map((doc) => GuestModel.fromFirestore(doc.id, doc.data()))
         .toList();
   }
+
+  /// Lista de invitados para vista agrupada por mesa (máx. 500).
+  Future<List<GuestModel>> getAllGuests(String eventId) async {
+    if (eventId.isEmpty) return [];
+    final snap = await _firestore
+        .collection('events')
+        .doc(eventId)
+        .collection('guests')
+        .limit(500)
+        .get();
+
+    final list = snap.docs
+        .map((doc) => GuestModel.fromFirestore(doc.id, doc.data()))
+        .toList();
+    list.sort((a, b) {
+      final ta = int.tryParse(a.tableNumber.trim()) ?? 9999;
+      final tb = int.tryParse(b.tableNumber.trim()) ?? 9999;
+      if (ta != tb) return ta.compareTo(tb);
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    return list;
+  }
 }
