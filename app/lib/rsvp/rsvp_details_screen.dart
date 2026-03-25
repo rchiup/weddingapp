@@ -62,7 +62,7 @@ class _RsvpDetailsScreenState extends State<RsvpDetailsScreen> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              initialValue: _dietPreference,
+              value: _dietPreference,
               decoration: const InputDecoration(
                 labelText: 'Preferencia de menú',
                 border: OutlineInputBorder(),
