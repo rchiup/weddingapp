@@ -65,8 +65,18 @@ class RsvpScreen extends StatelessWidget {
             const SizedBox(height: 8),
             Text(current.attending ? 'Asistiré' : 'No asistiré'),
             Text('Acompañante: ${current.plusOne ? "Sí" : "No"}'),
+            if (current.dietaryPreference != 'none')
+              Text(
+                'Menú: ${current.dietaryPreference == 'vegan' ? 'Vegano' : 'Vegetariano'}',
+              ),
+            if (current.allergies)
+              Text(
+                current.allergiesNotes.isNotEmpty
+                    ? 'Alergias: ${current.allergiesNotes}'
+                    : 'Alergias: Sí',
+              ),
             if (current.dietaryNotes.isNotEmpty)
-              Text('Restricciones: ${current.dietaryNotes}'),
+              Text('Notas: ${current.dietaryNotes}'),
           ],
         ],
       ),

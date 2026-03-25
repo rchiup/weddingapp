@@ -7,6 +7,10 @@ class CustomButton extends StatefulWidget {
   final VoidCallback? onPressed;
   final bool loading;
   final IconData? icon;
+  /// Si no es null, sustituye [AppColors.primary] (p. ej. pantalla join Lovable).
+  final Color? backgroundColor;
+  /// Bordes totalmente redondeados (p. ej. CTA “Subir foto” en galería Lovable).
+  final bool usePillShape;
 
   const CustomButton({
     super.key,
@@ -14,6 +18,8 @@ class CustomButton extends StatefulWidget {
     required this.onPressed,
     this.loading = false,
     this.icon,
+    this.backgroundColor,
+    this.usePillShape = false,
   });
 
   @override
@@ -26,6 +32,7 @@ class _CustomButtonState extends State<CustomButton> {
   @override
   Widget build(BuildContext context) {
     final enabled = widget.onPressed != null && !widget.loading;
+    final baseColor = widget.backgroundColor ?? AppColors.primary;
 
     return GestureDetector(
       onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
@@ -42,8 +49,8 @@ class _CustomButtonState extends State<CustomButton> {
         height: 48,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: enabled ? AppColors.primary : AppColors.primary.withOpacity(0.35),
-          borderRadius: AppRadii.button,
+          color: enabled ? baseColor : baseColor.withOpacity(0.35),
+          borderRadius: widget.usePillShape ? AppRadii.pill : AppRadii.button,
           boxShadow: _pressed ? [] : AppShadows.soft,
         ),
         transform: Matrix4.identity()..scale(_pressed ? 0.98 : 1.0),

@@ -5,21 +5,39 @@ import 'package:google_fonts/google_fonts.dart';
 class AppColors {
   static const primary = Color(0xFFC45C5C);
   static const primaryDark = Color(0xFF9A4545);
-  /// Fondo landing “Lovable” (join)
+  /// Fondo general (menú, etc.)
   static const background = Color(0xFFFDF8F7);
+  /// Fondo pantalla unión evento — crema rosado Lovable (~#FAF5F3)
+  static const joinLanding = Color(0xFFFAF5F3);
+  /// Fondo detrás del menú de módulos (peach muy suave ~#FEF6F2)
+  static const menuBackground = Color(0xFFFEF6F2);
+  /// CTA / corazón outline Lovable (~#BC666B)
+  static const joinAccent = Color(0xFFBC666B);
   static const blush = Color(0xFFFFF5F3);
   static const textPrimary = Color(0xFF2D2424);
   static const textMuted = Color(0xFF7A6F6F);
   static const card = Colors.white;
   static const border = Color(0xFFF0E8E6);
-  static const accentHeaderStart = Color(0xFFE8A598);
-  static const accentHeaderEnd = Color(0xFFD4A574);
+  /// Cabecera menú: burdeos → ámbar (referencia Lovable / Event Hub)
+  static const accentHeaderStart = Color(0xFF7D2E2E);
+  static const accentHeaderEnd = Color(0xFFE8A84A);
   static const gridIconTint = Color(0xFFB85A5A);
-  static const darkViewerBg = Color(0xFF1E1A19);
+  /// Galería fotos — crema casi blanco (~#FDFBFB, referencia Lovable)
+  static const galleryBackground = Color(0xFFFDFBFB);
+  /// Botón “Subir foto” en galería (~#C06070)
+  static const galleryUpload = Color(0xFFC06070);
+  /// Vista fullscreen foto: marrón cálido (~#2D2621, Lovable)
+  static const darkViewerBg = Color(0xFF2D2621);
+  /// Campo comentario sobre fondo oscuro
+  static const fullscreenInputFill = Color(0xFF3D3530);
+  /// Texto secundario sobre fondo oscuro (subtítulos, hints)
+  static const viewerTextMuted = Color(0xFFB8B0A8);
 }
 
 class AppRadii {
   static const card = BorderRadius.all(Radius.circular(18));
+  /// Esquinas solo-imagen en grilla de fotos
+  static const galleryTile = BorderRadius.all(Radius.circular(18));
   static const button = BorderRadius.all(Radius.circular(14));
   static const pill = BorderRadius.all(Radius.circular(999));
 }

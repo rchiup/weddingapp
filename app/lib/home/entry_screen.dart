@@ -11,7 +11,6 @@ import '../lista_novios/novios_registry_service.dart';
 import '../solteros/solteros_service.dart';
 import '../solteros/solteros_provider.dart';
 import '../ui/app_theme.dart';
-import '../ui/appear_animation.dart';
 import '../ui/custom_button.dart';
 import '../ui/custom_card.dart';
 import '../user_context/user_context_provider.dart';
@@ -422,7 +421,7 @@ class _EntryScreenState extends State<EntryScreen> {
 
     if (!hasEvent) {
       return Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: AppColors.joinLanding,
         body: SafeArea(
           child: ChangeNotifierProvider(
             create: (_) => EventJoinProvider(),
@@ -434,7 +433,7 @@ class _EntryScreenState extends State<EntryScreen> {
                     constraints: BoxConstraints(minHeight: constraints.maxHeight - AppSpacing.x2 * 2),
                     child: Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 440),
+                        constraints: const BoxConstraints(maxWidth: 400),
                         child: const EventJoinScreen(),
                       ),
                     ),
@@ -491,6 +490,24 @@ class _EntryScreenState extends State<EntryScreen> {
         label: 'Lista de novios',
         onTap: () => context.push('/lista_novios'),
       ),
+      _MenuItem(
+        emoji: '✅',
+        icon: Icons.fact_check_outlined,
+        label: 'RSVP',
+        onTap: () => context.push('/rsvp'),
+      ),
+      _MenuItem(
+        emoji: '🎵',
+        icon: Icons.library_music_outlined,
+        label: 'Canciones infaltables',
+        onTap: () => context.push('/songs'),
+      ),
+      _MenuItem(
+        emoji: '📅',
+        icon: Icons.calendar_month_outlined,
+        label: 'Añadir a mi calendario',
+        onTap: () => context.push('/calendar'),
+      ),
       if (userContext.isAdmin)
         _MenuItem(
           emoji: '👰🤵',
@@ -501,7 +518,7 @@ class _EntryScreenState extends State<EntryScreen> {
     ];
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.menuBackground,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -510,22 +527,22 @@ class _EntryScreenState extends State<EntryScreen> {
             if (hasEvent)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(AppSpacing.x2, 28, AppSpacing.x2, 22),
+                padding: const EdgeInsets.fromLTRB(AppSpacing.x2, 26, AppSpacing.x2, 20),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
                     colors: [
                       AppColors.accentHeaderStart,
                       AppColors.accentHeaderEnd,
                     ],
                   ),
-                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
                   boxShadow: [
                     BoxShadow(
-                      color: Color(0x33000000),
-                      blurRadius: 18,
-                      offset: Offset(0, 8),
+                      color: Color(0x28000000),
+                      blurRadius: 16,
+                      offset: Offset(0, 6),
                     ),
                   ],
                 ),
@@ -551,7 +568,7 @@ class _EntryScreenState extends State<EntryScreen> {
                       subtitleHeader,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.94),
+                        color: Colors.white.withValues(alpha: 0.94),
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -561,10 +578,10 @@ class _EntryScreenState extends State<EntryScreen> {
               ),
             Expanded(
               child: Container(
-                color: AppColors.background,
+                color: AppColors.menuBackground,
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 560),
+                    constraints: const BoxConstraints(maxWidth: 720),
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(
                         AppSpacing.x2,
@@ -577,24 +594,20 @@ class _EntryScreenState extends State<EntryScreen> {
                         LayoutBuilder(
                           builder: (context, c) {
                             final w = c.maxWidth;
-                            final cross = w >= 520 ? 3 : 2;
-                            final ratio = w >= 520 ? 1.05 : 1.0;
+                            final crossAxisCount = w >= 500 ? 3 : 2;
+                            const spacing = 14.0;
                             return GridView.builder(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               itemCount: menuItems.length,
                               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: cross,
-                                mainAxisSpacing: 12,
-                                crossAxisSpacing: 12,
-                                childAspectRatio: ratio,
+                                crossAxisCount: crossAxisCount,
+                                mainAxisSpacing: spacing,
+                                crossAxisSpacing: spacing,
+                                childAspectRatio: crossAxisCount >= 3 ? 0.9 : 0.88,
                               ),
                               itemBuilder: (context, i) {
-                                final item = menuItems[i];
-                                return StaggerAppear(
-                                  index: i,
-                                  child: _MenuGridCard(item: item),
-                                );
+                                return _MenuGridCard(item: menuItems[i]);
                               },
                             );
                           },
@@ -648,55 +661,80 @@ class _MenuGridCard extends StatelessWidget {
 
   const _MenuGridCard({required this.item});
 
+  static const double _emojiSize = 24;
+  static const double _iconSize = 28;
+
   @override
   Widget build(BuildContext context) {
     final enabled = item.enabled && item.onTap != null;
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        CustomCard(
-          onTap: enabled ? item.onTap : null,
-          elevated: enabled,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x1_5, vertical: AppSpacing.x2),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(item.emoji, style: const TextStyle(fontSize: 26)),
-              const SizedBox(height: AppSpacing.x1),
-              Icon(
-                item.icon,
-                size: 32,
-                color: enabled ? AppColors.gridIconTint : Colors.grey.shade400,
-              ),
-              const SizedBox(height: AppSpacing.x1_5),
-              Text(
-                item.label,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.title.copyWith(
-                  fontSize: 13.5,
-                  color: enabled ? AppColors.textPrimary : Colors.grey.shade500,
+
+    final core = CustomCard(
+      onTap: enabled ? item.onTap : null,
+      elevated: enabled,
+      padding: EdgeInsets.zero,
+      child: Stack(
+        clipBehavior: Clip.hardEdge,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 18, 12, 14),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  height: _emojiSize + 4,
+                  child: Center(
+                    child: Text(
+                      item.emoji,
+                      style: const TextStyle(fontSize: _emojiSize, height: 1.1),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ),
-        if (item.showBadge)
-          Positioned(
-            top: 10,
-            right: 10,
-            child: Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-              ),
+                const SizedBox(height: 8),
+                Icon(
+                  item.icon,
+                  size: _iconSize,
+                  color: AppColors.gridIconTint,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  item.label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.title.copyWith(
+                    fontSize: 13,
+                    height: 1.2,
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
-      ],
+          if (item.showBadge && enabled)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: AppColors.joinAccent,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    if (enabled) return core;
+
+    return Opacity(
+      opacity: 0.48,
+      child: IgnorePointer(child: core),
     );
   }
 }

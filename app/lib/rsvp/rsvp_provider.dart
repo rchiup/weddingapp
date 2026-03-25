@@ -34,6 +34,9 @@ class RsvpProvider extends ChangeNotifier {
     required String userId,
     required bool attending,
     required bool plusOne,
+    required String dietaryPreference,
+    required bool allergies,
+    required String allergiesNotes,
     required String dietaryNotes,
   }) async {
     _setLoading(true);
@@ -42,6 +45,9 @@ class RsvpProvider extends ChangeNotifier {
         id: userId,
         attending: attending,
         plusOne: plusOne,
+        dietaryPreference: dietaryPreference,
+        allergies: allergies,
+        allergiesNotes: allergiesNotes,
         dietaryNotes: dietaryNotes,
         updatedAt: DateTime.now(),
       );

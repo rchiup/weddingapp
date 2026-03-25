@@ -40,6 +40,17 @@ class NoviosRegistryService {
     return null;
   }
 
+  Future<Map<String, dynamic>?> getChurchLocation(String eventId) async {
+    if (eventId.isEmpty) return null;
+    final res =
+        await _dio.get('$_backendBaseUrl/api/gallery/event/$eventId/church_location');
+    final data = res.data as Map<String, dynamic>? ?? {};
+    final location = data['location'];
+    if (location is Map<String, dynamic>) return location;
+    if (location is Map) return Map<String, dynamic>.from(location);
+    return null;
+  }
+
   Future<void> setLocation({
     required String eventId,
     required String adminCode,
@@ -52,6 +63,27 @@ class NoviosRegistryService {
     }
     await _dio.post(
       '$_backendBaseUrl/api/gallery/event/$eventId/location',
+      data: {
+        'adminCode': adminCode.trim(),
+        'latitude': latitude,
+        'longitude': longitude,
+        'label': label.trim(),
+      },
+    );
+  }
+
+  Future<void> setChurchLocation({
+    required String eventId,
+    required String adminCode,
+    required double latitude,
+    required double longitude,
+    String label = '',
+  }) async {
+    if (eventId.isEmpty || adminCode.trim().isEmpty) {
+      throw Exception('Faltan datos');
+    }
+    await _dio.post(
+      '$_backendBaseUrl/api/gallery/event/$eventId/church_location',
       data: {
         'adminCode': adminCode.trim(),
         'latitude': latitude,

@@ -25,14 +25,66 @@ class FotosProvider extends ChangeNotifier {
   /// `true` = cuadrícula, `false` = feed vertical estilo Instagram.
   bool _galleryGridMode = true;
 
-  List<FotoModel> get photos => _photos.take(_visibleCount).toList();
+  String? _uploaderFilterUserId;
+
+  String? get uploaderFilterUserId => _uploaderFilterUserId;
+
+  List<FotoModel> _filteredAll() {
+    final filterId = _uploaderFilterUserId;
+    if (filterId == null || filterId.isEmpty) return _photos;
+    return _photos.where((p) => p.uploadedBy == filterId).toList();
+  }
+
+  /// Fotos visibles en la UI. Si hay filtro “Subido por”, se muestran todas las coincidencias.
+  List<FotoModel> get photos {
+    final filtered = _filteredAll();
+    if (_uploaderFilterUserId != null && _uploaderFilterUserId!.isNotEmpty) {
+      return filtered;
+    }
+    return filtered.take(_visibleCount).toList();
+  }
+  /// Total de fotos (respetando filtro si aplica) para subtítulo del AppBar.
+  int get photoCount => _filteredAll().length;
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _isLoadingMore;
-  bool get hasMore => _hasMore;
+  bool get hasMore {
+    final filtering = _uploaderFilterUserId != null && _uploaderFilterUserId!.isNotEmpty;
+    return filtering ? false : _hasMore;
+  }
   bool get isUploading => _isUploading;
   double get uploadProgress => _uploadProgress;
   String? get errorMessage => _errorMessage;
   bool get galleryGridMode => _galleryGridMode;
+
+  /// Opciones para el filtro “Subido por”.
+  /// Devuelve (userId, displayName, count) ordenado por nombre.
+  List<({String userId, String name, int count})> get uploaderOptions {
+    final map = <String, ({String name, int count})>{};
+    for (final p in _photos) {
+      final id = p.uploadedBy.trim();
+      if (id.isEmpty) continue;
+      final name = p.uploadedByName.trim().isEmpty ? 'Invitado' : p.uploadedByName.trim();
+      final prev = map[id];
+      map[id] = (name: prev == null ? name : prev.name, count: (prev?.count ?? 0) + 1);
+    }
+    final list = map.entries
+        .map((e) => (userId: e.key, name: e.value.name, count: e.value.count))
+        .toList();
+    list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return list;
+  }
+
+  void setUploaderFilter(String? userId) {
+    final next = userId?.trim();
+    _uploaderFilterUserId = (next == null || next.isEmpty) ? null : next;
+    notifyListeners();
+  }
+
+  void clearUploaderFilter() {
+    if (_uploaderFilterUserId == null) return;
+    _uploaderFilterUserId = null;
+    notifyListeners();
+  }
 
   void toggleGalleryLayout() {
     _galleryGridMode = !_galleryGridMode;

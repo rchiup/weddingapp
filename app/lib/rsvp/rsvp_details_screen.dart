@@ -18,10 +18,14 @@ class RsvpDetailsScreen extends StatefulWidget {
 
 class _RsvpDetailsScreenState extends State<RsvpDetailsScreen> {
   bool _plusOne = false;
+  String _dietPreference = 'none';
+  bool _hasAllergies = false;
+  final _allergiesController = TextEditingController();
   final _dietaryController = TextEditingController();
 
   @override
   void dispose() {
+    _allergiesController.dispose();
     _dietaryController.dispose();
     super.dispose();
   }
@@ -51,10 +55,47 @@ class _RsvpDetailsScreenState extends State<RsvpDetailsScreen> {
               value: _plusOne,
               onChanged: (value) => setState(() => _plusOne = value),
             ),
+            const SizedBox(height: 8),
+            const Text(
+              'Menú',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              initialValue: _dietPreference,
+              decoration: const InputDecoration(
+                labelText: 'Preferencia de menú',
+                border: OutlineInputBorder(),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'none', child: Text('Normal')),
+                DropdownMenuItem(value: 'vegetarian', child: Text('Vegetariano')),
+                DropdownMenuItem(value: 'vegan', child: Text('Vegano')),
+              ],
+              onChanged: (v) => setState(() => _dietPreference = v ?? 'none'),
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              title: const Text('Soy alérgico/a a algo'),
+              value: _hasAllergies,
+              onChanged: (value) => setState(() => _hasAllergies = value),
+            ),
+            if (_hasAllergies) ...[
+              const SizedBox(height: 8),
+              TextField(
+                controller: _allergiesController,
+                decoration: const InputDecoration(
+                  labelText: '¿A qué eres alérgico/a? (opcional)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
+              ),
+            ],
+            const SizedBox(height: 8),
             TextField(
               controller: _dietaryController,
               decoration: const InputDecoration(
-                labelText: 'Restricciones alimentarias (opcional)',
+                labelText: 'Notas adicionales (opcional)',
                 border: OutlineInputBorder(),
               ),
               maxLines: 2,
@@ -66,15 +107,19 @@ class _RsvpDetailsScreenState extends State<RsvpDetailsScreen> {
                   : () async {
                       final eventId = userContext.eventId ?? '';
                       final userId = userContext.userId ?? '';
+                    final nav = Navigator.of(context);
                       await provider.saveRsvp(
                         eventId: eventId,
                         userId: userId,
                         attending: widget.attending,
                         plusOne: _plusOne,
+                        dietaryPreference: _dietPreference,
+                        allergies: _hasAllergies,
+                        allergiesNotes: _allergiesController.text.trim(),
                         dietaryNotes: _dietaryController.text.trim(),
                       );
                       if (!mounted) return;
-                      Navigator.of(context).pop();
+                    nav.pop();
                     },
               child: provider.isLoading
                   ? const SizedBox(

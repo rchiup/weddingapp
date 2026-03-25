@@ -32,6 +32,9 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
   String? _locationError;
   List<Map<String, dynamic>> _searchResults = [];
   LatLng _selectedLocation = const LatLng(-33.4489, -70.6693);
+  Map<String, dynamic>? _partyLocation;
+  Map<String, dynamic>? _churchLocation;
+  int _editingDestination = 1; // 0=Iglesia, 1=Fiesta
 
   @override
   void initState() {
@@ -104,11 +107,26 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
       _locationError = null;
     });
     try {
-      final location = await NoviosRegistryService().getLocation(eventId);
+      final results = await Future.wait([
+        NoviosRegistryService().getLocation(eventId),
+        NoviosRegistryService().getChurchLocation(eventId),
+      ]);
+      final location = results[0];
+      final church = results[1];
       if (!mounted) return;
-      final latitude = location?['latitude'];
-      final longitude = location?['longitude'];
-      final label = (location?['label'] ?? '').toString();
+      setState(() {
+        _partyLocation = location;
+        _churchLocation = church;
+        if (_partyLocation == null && _churchLocation != null) {
+          _editingDestination = 0;
+        } else {
+          _editingDestination = 1;
+        }
+      });
+      final active = _editingDestination == 0 ? _churchLocation : _partyLocation;
+      final latitude = active?['latitude'];
+      final longitude = active?['longitude'];
+      final label = (active?['label'] ?? '').toString();
       setState(() {
         if (latitude is num && longitude is num) {
           _selectedLocation = LatLng(latitude.toDouble(), longitude.toDouble());
@@ -126,6 +144,23 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
       setState(() => _locationError = '$e');
     } finally {
       if (mounted) setState(() => _loadingLocation = false);
+    }
+  }
+
+  void _switchEditingDestination(int value) {
+    setState(() {
+      _editingDestination = value;
+      _searchResults = [];
+      _locationError = null;
+    });
+    final active = _editingDestination == 0 ? _churchLocation : _partyLocation;
+    final latitude = active?['latitude'];
+    final longitude = active?['longitude'];
+    final label = (active?['label'] ?? '').toString();
+    if (latitude is num && longitude is num) {
+      _setSelectedLocation(latitude.toDouble(), longitude.toDouble(), label: label, clearResults: false);
+    } else {
+      _locationLabelController.text = label;
     }
   }
 
@@ -173,16 +208,41 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
       _locationError = null;
     });
     try {
-      await NoviosRegistryService().setLocation(
-        eventId: eventId,
-        adminCode: _adminCode(eventId),
-        latitude: lat,
-        longitude: lng,
-        label: label,
-      );
+      final svc = NoviosRegistryService();
+      if (_editingDestination == 0) {
+        await svc.setChurchLocation(
+          eventId: eventId,
+          adminCode: _adminCode(eventId),
+          latitude: lat,
+          longitude: lng,
+          label: label,
+        );
+        _churchLocation = {
+          'latitude': lat,
+          'longitude': lng,
+          'label': label,
+        };
+      } else {
+        await svc.setLocation(
+          eventId: eventId,
+          adminCode: _adminCode(eventId),
+          latitude: lat,
+          longitude: lng,
+          label: label,
+        );
+        _partyLocation = {
+          'latitude': lat,
+          'longitude': lng,
+          'label': label,
+        };
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ubicación guardada ✅')),
+        SnackBar(
+          content: Text(
+            _editingDestination == 0 ? 'Ubicación de iglesia guardada ✅' : 'Ubicación de fiesta guardada ✅',
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -285,9 +345,9 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(AppSpacing.x2),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.10),
+                    color: AppColors.primary.withValues(alpha: 0.10),
                     borderRadius: AppRadii.card,
-                    border: Border.all(color: AppColors.primary.withOpacity(0.15)),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
                   ),
                   child: Row(
                     children: [
@@ -351,13 +411,22 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
                       Row(
                         children: [
                           const Text('📍 ', style: TextStyle(fontSize: 18)),
-                          Text('Ubicación del evento', style: AppTextStyles.title),
+                          Text('Ubicaciones', style: AppTextStyles.title),
                         ],
                       ),
                       const SizedBox(height: AppSpacing.x1),
                       Text(
-                        'Busca el lugar, toca el mapa o ajusta las coordenadas manualmente.',
+                        'Configura la ubicación de la iglesia y de la fiesta.',
                         style: AppTextStyles.subtitle,
+                      ),
+                      const SizedBox(height: AppSpacing.x2),
+                      SegmentedButton<int>(
+                        segments: const [
+                          ButtonSegment<int>(value: 0, label: Text('Iglesia')),
+                          ButtonSegment<int>(value: 1, label: Text('Fiesta')),
+                        ],
+                        selected: <int>{_editingDestination},
+                        onSelectionChanged: (s) => _switchEditingDestination(s.first),
                       ),
                       const SizedBox(height: AppSpacing.x2),
                       TextField(
@@ -427,7 +496,9 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
                       Text('Selecciona el punto', style: AppTextStyles.title),
                       const SizedBox(height: AppSpacing.x1),
                       Text(
-                        'Toca el mapa para fijar el punto exacto del evento.',
+                        _editingDestination == 0
+                            ? 'Toca el mapa para fijar el punto exacto de la iglesia.'
+                            : 'Toca el mapa para fijar el punto exacto de la fiesta.',
                         style: AppTextStyles.subtitle,
                       ),
                       const SizedBox(height: AppSpacing.x2),
@@ -521,7 +592,11 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
                       ),
                       const SizedBox(height: AppSpacing.x2),
                       CustomButton(
-                        label: _loadingLocation ? 'Guardando...' : 'Guardar ubicación',
+                        label: _loadingLocation
+                            ? 'Guardando...'
+                            : (_editingDestination == 0
+                                ? 'Guardar ubicación iglesia'
+                                : 'Guardar ubicación fiesta'),
                         icon: _loadingLocation ? Icons.hourglass_bottom : Icons.place_outlined,
                         loading: _loadingLocation,
                         onPressed: _loadingLocation ? null : _saveLocation,

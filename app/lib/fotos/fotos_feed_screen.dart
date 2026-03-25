@@ -56,7 +56,11 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
     }
 
     if (provider.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: CircularProgressIndicator(
+          color: AppColors.galleryUpload,
+        ),
+      );
     }
 
     if (provider.photos.isEmpty) {
@@ -65,7 +69,10 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
         child: Center(
           child: Text(
             'Aún no hay fotos',
-            style: AppTextStyles.subtitle,
+            style: AppTextStyles.subtitle.copyWith(
+              color: AppColors.textMuted,
+              fontSize: 15,
+            ),
           ),
         ),
       );
@@ -90,10 +97,20 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
               AppSpacing.x1,
             ),
             sliver: SliverToBoxAdapter(
-              child: CustomButton(
-                label: 'Subir foto',
-                icon: Icons.upload_rounded,
-                onPressed: widget.onUploadTap,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2),
+                    child: CustomButton(
+                      label: 'Subir foto',
+                      icon: Icons.upload_rounded,
+                      backgroundColor: AppColors.galleryUpload,
+                      usePillShape: true,
+                      onPressed: widget.onUploadTap,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -105,34 +122,42 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
                 AppSpacing.x2,
                 AppSpacing.x3,
               ),
-              sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 0.85,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    if (index >= provider.photos.length) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(16),
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
-                    }
-                    final photo = provider.photos[index];
-                    return StaggerAppear(
-                      index: index,
-                      child: FotosImageTile(
-                        photo: photo,
-                        eventId: eventId,
-                      ),
-                    );
-                  },
-                  childCount: provider.photos.length + (provider.hasMore ? 1 : 0),
-                ),
+              sliver: SliverLayoutBuilder(
+                builder: (context, constraints) {
+                  final w = constraints.crossAxisExtent;
+                  final crossAxisCount = w >= 560 ? 3 : 2;
+                  return SliverGrid(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 1,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        if (index >= provider.photos.length) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: CircularProgressIndicator(),
+                            ),
+                          );
+                        }
+                        final photo = provider.photos[index];
+                        return StaggerAppear(
+                          index: index,
+                          child: FotosImageTile(
+                            photo: photo,
+                            eventId: eventId,
+                            index: index,
+                            photos: provider.photos,
+                          ),
+                        );
+                      },
+                      childCount: provider.photos.length + (provider.hasMore ? 1 : 0),
+                    ),
+                  );
+                },
               ),
             )
           else
@@ -161,6 +186,8 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
                           photo: photo,
                           eventId: eventId,
                           layout: FotosGalleryTileLayout.feed,
+                          index: index,
+                          photos: provider.photos,
                         ),
                       ),
                     );

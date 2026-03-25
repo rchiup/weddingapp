@@ -12,6 +12,8 @@ import '../mesas/mesas_flow.dart';
 import '../lista_novios/lista_novios_screen.dart';
 import '../lista_novios/novios_admin_screen.dart';
 import '../rsvp/rsvp_flow.dart';
+import '../songs/songs_screen.dart';
+import '../calendar/calendar_screen.dart';
 import '../solteros/solteros_flow.dart';
 import '../solteros/solteros_dm_screen.dart';
 import '../ui/app_theme.dart';
@@ -90,6 +92,16 @@ class AppRouter {
           path: '/rsvp',
           name: 'rsvp',
           builder: (context, state) => const RsvpFlow(),
+        ),
+        GoRoute(
+          path: '/songs',
+          name: 'songs',
+          builder: (context, state) => const SongsScreen(),
+        ),
+        GoRoute(
+          path: '/calendar',
+          name: 'calendar',
+          builder: (context, state) => const CalendarScreen(),
         ),
         GoRoute(
           path: '/mesas',

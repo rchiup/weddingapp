@@ -1,15 +1,12 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../user_context/user_context_provider.dart';
 import '../ui/app_theme.dart';
 import '../ui/custom_button.dart';
-import '../ui/custom_card.dart';
 import 'foto_model.dart';
 import 'fotos_download.dart';
 import 'fotos_repository.dart';
-import 'fotos_social_service.dart';
 
 /// Vista de foto en grande con likes y comentarios
 class FotosFullscreenScreen extends StatefulWidget {
@@ -23,7 +20,6 @@ class FotosFullscreenScreen extends StatefulWidget {
 }
 
 class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
-  final FotosSocialService _socialService = FotosSocialService();
   final FotosRepository _fotosRepository = FotosRepository();
   final TextEditingController _commentController = TextEditingController();
   /// Evita que el pan horizontal del zoom compita con el gesto “volver” del sistema
@@ -181,23 +177,17 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
         }
         final h = effectiveH;
         final imageFit = fillCover ? BoxFit.cover : BoxFit.contain;
-        final imageCard = Container(
-          width: double.infinity,
-          height: h,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: AppRadii.card,
-            boxShadow: AppShadows.soft,
-            border: Border.all(color: AppColors.border),
-          ),
-          child: ClipRRect(
-            borderRadius: AppRadii.card,
+        final imageCard = ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: SizedBox(
+            width: double.infinity,
+            height: h,
             child: Image.network(
               widget.photo.url,
               fit: imageFit,
               alignment: Alignment.center,
               errorBuilder: (_, __, ___) => const Center(
-                child: Icon(Icons.broken_image_outlined, size: 48),
+                child: Icon(Icons.broken_image_outlined, size: 48, color: Colors.white54),
               ),
             ),
           ),
@@ -255,15 +245,43 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
     );
   }
 
+  InputDecoration _fullscreenCommentFieldDecoration() {
+    return InputDecoration(
+      hintText: 'Escribe un comentario...',
+      hintStyle: TextStyle(color: AppColors.viewerTextMuted, fontSize: 14),
+      filled: true,
+      fillColor: AppColors.fullscreenInputFill,
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.white24, width: 1),
+      ),
+    );
+  }
+
   Widget _buildSocialCard({
-    required String uploadedByName,
     required String userId,
     required String userName,
     /// Tarjeta más baja en móvil: prioriza la foto; comentarios van abajo con scroll.
     bool compact = false,
   }) {
+    final likeIcon = (_initialIsLiked ?? false) ? Icons.favorite : Icons.favorite_border;
+    final likeColor =
+        (_initialIsLiked ?? false) ? const Color(0xFFFF8A95) : Colors.white;
+    final likeText = _initialLikeCount == null ? '—' : '$_initialLikeCount';
+    final commentCountText = _loadingComments ? '—' : '${_comments.length}';
+
     if (compact) {
-      return CustomCard(
+      return Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.x1_5,
           vertical: AppSpacing.x1,
@@ -274,45 +292,43 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
           children: [
             Row(
               children: [
-                Expanded(
-                  child: Text(
-                    'Subido por: $uploadedByName',
-                    style: AppTextStyles.subtitle.copyWith(fontSize: 12),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
                 IconButton(
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                   onPressed: () async => _toggleLike(userId: userId, userName: userName),
-                  icon: Icon(
-                    (_initialIsLiked ?? false) ? Icons.favorite : Icons.favorite_border,
-                    size: 22,
-                    color: (_initialIsLiked ?? false) ? Colors.red : AppColors.textPrimary.withOpacity(0.7),
-                  ),
+                  icon: Icon(likeIcon, size: 24, color: likeColor),
                   tooltip: (_initialIsLiked ?? false) ? 'Quitar like' : 'Me gusta',
                 ),
                 Text(
-                  _initialLikeCount == null ? '—' : '$_initialLikeCount',
-                  style: AppTextStyles.title.copyWith(fontSize: 14),
+                  likeText,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                Text(' likes', style: AppTextStyles.subtitle.copyWith(fontSize: 11)),
+                const SizedBox(width: 20),
+                const Icon(Icons.chat_bubble_outline, size: 22, color: Colors.white),
+                const SizedBox(width: 6),
+                Text(
+                  commentCountText,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: TextField(
                     controller: _commentController,
-                    decoration: const InputDecoration(
-                      hintText: 'Escribe un comentario...',
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    ),
-                    style: const TextStyle(fontSize: 14),
+                    decoration: _fullscreenCommentFieldDecoration(),
+                    style: const TextStyle(fontSize: 14, color: Colors.white),
                     maxLines: 1,
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _submitComment(userId: userId, userName: userName),
@@ -320,10 +336,10 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                 ),
                 IconButton(
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                   onPressed: () async => _submitComment(userId: userId, userName: userName),
-                  icon: const Icon(Icons.send, size: 22),
-                  color: AppColors.primary,
+                  icon: const Icon(Icons.send_rounded, size: 22, color: Colors.white),
+                  tooltip: 'Enviar',
                 ),
               ],
             ),
@@ -332,55 +348,59 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
       );
     }
 
-    return CustomCard(
+    return Padding(
       padding: const EdgeInsets.all(AppSpacing.x2),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Subido por: $uploadedByName', style: AppTextStyles.subtitle.copyWith(fontSize: 14)),
-          const SizedBox(height: AppSpacing.x1),
           Row(
             children: [
               IconButton(
                 onPressed: () async => _toggleLike(userId: userId, userName: userName),
-                icon: Icon(
-                  (_initialIsLiked ?? false) ? Icons.favorite : Icons.favorite_border,
-                  color: (_initialIsLiked ?? false) ? Colors.red : AppColors.textPrimary.withOpacity(0.7),
-                ),
+                icon: Icon(likeIcon, size: 26, color: likeColor),
                 tooltip: (_initialIsLiked ?? false) ? 'Quitar like' : 'Me gusta',
               ),
               Text(
-                _initialLikeCount == null ? '—' : '$_initialLikeCount',
-                style: AppTextStyles.title.copyWith(fontSize: 16),
+                likeText,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              const SizedBox(width: AppSpacing.x1),
-              Text('likes', style: AppTextStyles.subtitle),
+              const SizedBox(width: 24),
+              const Icon(Icons.chat_bubble_outline, size: 24, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                commentCountText,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: AppSpacing.x1),
-          Divider(color: AppColors.border.withOpacity(0.8)),
-          const SizedBox(height: AppSpacing.x1),
-          Text('Comentarios', style: AppTextStyles.title.copyWith(fontSize: 14)),
+          const SizedBox(height: AppSpacing.x1_5),
+          Divider(color: Colors.white.withValues(alpha: 0.12)),
           const SizedBox(height: AppSpacing.x1),
           Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: _commentController,
-                  decoration: const InputDecoration(
-                    hintText: 'Escribe un comentario...',
-                  ),
+                  decoration: _fullscreenCommentFieldDecoration(),
+                  style: const TextStyle(fontSize: 14, color: Colors.white),
                   maxLines: 1,
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) => _submitComment(userId: userId, userName: userName),
                 ),
               ),
-              const SizedBox(width: AppSpacing.x1),
               IconButton(
                 onPressed: () async => _submitComment(userId: userId, userName: userName),
-                icon: const Icon(Icons.send),
-                color: AppColors.primary,
+                icon: const Icon(Icons.send_rounded, color: Colors.white),
+                tooltip: 'Enviar',
               ),
             ],
           ),
@@ -389,38 +409,37 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
     );
   }
 
-  /// Una sola tarjeta de comentario (reutilizado en lista móvil, desktop y scroll móvil).
+  /// Una sola línea de comentario estilo Lovable: **Nombre:** mensaje
   Widget _commentCard(Map<String, dynamic> c, String fallbackName) {
-    final ts = c['timestamp'];
-    DateTime? dt;
-    if (ts is String) {
-      dt = DateTime.tryParse(ts);
-    } else if (ts is Timestamp) {
-      dt = ts.toDate();
-    }
-    final dateStr = dt != null
-        ? '${dt.day}/${dt.month} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}'
-        : '';
     final commentName = (c['name'] ?? '').toString().trim();
-    return CustomCard(
-      padding: const EdgeInsets.all(AppSpacing.x1_5),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${commentName.isNotEmpty ? commentName : fallbackName} · $dateStr',
-            style: AppTextStyles.subtitle.copyWith(fontSize: 12),
+    final label = commentName.isNotEmpty ? commentName : fallbackName;
+    final message = (c['message'] ?? '').toString();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.x1_5),
+      child: Text.rich(
+        TextSpan(
+          style: const TextStyle(
+            color: Color(0xFFE8E4E0),
+            fontSize: 14,
+            height: 1.4,
           ),
-          const SizedBox(height: AppSpacing.x1),
-          Text('${c['message'] ?? ''}'),
-        ],
+          children: [
+            TextSpan(
+              text: '$label: ',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            TextSpan(text: message),
+          ],
+        ),
       ),
     );
   }
 
   /// Móvil: likes + input + comentarios en un scroll; la foto ocupa el Expanded de arriba.
   Widget _buildMobileScrollSection({
-    required String uploadedByName,
     required String userId,
     required String userName,
     required String fallbackName,
@@ -432,7 +451,6 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(AppSpacing.x2, 0, AppSpacing.x2, AppSpacing.x1),
             child: _buildSocialCard(
-              uploadedByName: uploadedByName,
               userId: userId,
               userName: userName,
               compact: true,
@@ -450,7 +468,10 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2),
-              child: Text('Sin comentarios', style: AppTextStyles.subtitle),
+              child: Text(
+              'Sin comentarios',
+              style: TextStyle(color: AppColors.viewerTextMuted, fontSize: 14),
+            ),
             ),
           )
         else
@@ -459,13 +480,7 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, i) {
-                  final c = _comments[i];
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      bottom: i == _comments.length - 1 ? 0 : AppSpacing.x1_5,
-                    ),
-                    child: _commentCard(c, fallbackName),
-                  );
+                  return _commentCard(_comments[i], fallbackName);
                 },
                 childCount: _comments.length,
               ),
@@ -478,7 +493,6 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
   /// Panel derecho en desktop: un solo scroll (metadatos + input + comentarios)
   /// para no dejar un bloque vacío enorme debajo de pocos comentarios.
   Widget _buildWideSidePanel({
-    required String uploadedByName,
     required String userId,
     required String userName,
     required String fallbackName,
@@ -490,7 +504,6 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
           child: Padding(
             padding: const EdgeInsets.only(top: 0, bottom: AppSpacing.x2),
             child: _buildSocialCard(
-              uploadedByName: uploadedByName,
               userId: userId,
               userName: userName,
             ),
@@ -505,7 +518,10 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2),
-              child: Text('Sin comentarios', style: AppTextStyles.subtitle),
+              child: Text(
+              'Sin comentarios',
+              style: TextStyle(color: AppColors.viewerTextMuted, fontSize: 14),
+            ),
             ),
           )
         else
@@ -519,7 +535,7 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                       AppSpacing.x2,
                       0,
                       AppSpacing.x2,
-                      i == _comments.length - 1 ? AppSpacing.x2 : AppSpacing.x1_5,
+                      i == _comments.length - 1 ? AppSpacing.x2 : 0,
                     ),
                     child: _commentCard(_comments[i], fallbackName),
                   );
@@ -581,13 +597,33 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
         automaticallyImplyLeading: false,
         backgroundColor: AppColors.darkViewerBg,
         foregroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-          tooltip: 'Volver',
-          onPressed: () => Navigator.of(context).maybePop(),
+        titleSpacing: AppSpacing.x2,
+        title: Text.rich(
+          TextSpan(
+            style: const TextStyle(fontSize: 15),
+            children: [
+              TextSpan(
+                text: 'Subido por ',
+                style: TextStyle(color: AppColors.viewerTextMuted),
+              ),
+              TextSpan(
+                text: uploadedByName,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
-        title: Text('Foto', style: AppTextStyles.title.copyWith(color: Colors.white)),
         actions: [
+          IconButton(
+            tooltip: 'Cerrar',
+            icon: const Icon(Icons.close_rounded, color: Colors.white),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
           IconButton(
             tooltip: 'Descargar',
             icon: const Icon(Icons.download_outlined, color: Colors.white),
@@ -676,7 +712,6 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                           height: innerHeight,
                           width: double.infinity,
                           child: _buildWideSidePanel(
-                            uploadedByName: uploadedByName,
                             userId: userId,
                             userName: userName,
                             fallbackName: fallbackName,
@@ -712,7 +747,6 @@ class _FotosFullscreenScreenState extends State<FotosFullscreenScreen> {
                 Expanded(
                   flex: 5,
                   child: _buildMobileScrollSection(
-                    uploadedByName: uploadedByName,
                     userId: userId,
                     userName: userName,
                     fallbackName: fallbackName,

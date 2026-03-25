@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../ui/app_theme.dart';
-import '../ui/startup_background.dart';
 import '../utils/nav_safe.dart';
 import '../utils/nested_flow_navigator.dart';
 import 'fotos_export_screen.dart';
@@ -19,25 +18,53 @@ class FotosFlow extends StatefulWidget {
 }
 
 class _FotosFlowState extends State<FotosFlow> {
-  int _currentIndex = 0;
-
-  void openUploadTab() => setState(() => _currentIndex = 1);
+  Future<void> _openUpload(BuildContext context) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const FotosUploadScreen()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = 0;
     final screens = [
-      FotosFeedScreen(onUploadTap: openUploadTab),
-      const FotosUploadScreen(),
+      FotosFeedScreen(onUploadTap: () => _openUpload(context)),
     ];
 
     return ChangeNotifierProvider(
       create: (_) => FotosProvider(),
       child: NestedFlowNavigator(
         child: Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: AppColors.galleryBackground,
           appBar: AppBar(
-            title: Text('Fotos del evento', style: AppTextStyles.displaySmall.copyWith(fontSize: 20)),
-            backgroundColor: AppColors.background,
+            toolbarHeight: 72,
+            title: Consumer<FotosProvider>(
+              builder: (context, fotos, _) {
+                final sub = fotos.isLoading
+                    ? '…'
+                    : '${fotos.photoCount} ${fotos.photoCount == 1 ? 'foto' : 'fotos'}';
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '📸 Fotos del evento',
+                      style: AppTextStyles.displaySmall.copyWith(fontSize: 20),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        sub,
+                        style: AppTextStyles.subtitle.copyWith(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            backgroundColor: AppColors.galleryBackground,
+            foregroundColor: AppColors.textPrimary,
+            surfaceTintColor: Colors.transparent,
             leading: IconButton(
               onPressed: () => popOrEntry(context),
               icon: const Icon(Icons.arrow_back),
@@ -46,13 +73,77 @@ class _FotosFlowState extends State<FotosFlow> {
             actions: [
               Consumer<FotosProvider>(
                 builder: (context, fotos, _) {
-                  if (_currentIndex != 0) return const SizedBox.shrink();
+                  final filtering = (fotos.uploaderFilterUserId ?? '').isNotEmpty;
+                  return IconButton(
+                    tooltip: filtering ? 'Filtrado (Subido por)' : 'Filtrar por “Subido por”',
+                    icon: Icon(
+                      filtering ? Icons.filter_alt_rounded : Icons.filter_alt_outlined,
+                      color: AppColors.textPrimary,
+                    ),
+                    onPressed: () async {
+                      final options = fotos.uploaderOptions;
+                      await showModalBottomSheet<void>(
+                        context: context,
+                        showDragHandle: true,
+                        backgroundColor: AppColors.card,
+                        builder: (ctx) {
+                          return SafeArea(
+                            child: ListView(
+                              padding: const EdgeInsets.fromLTRB(
+                                AppSpacing.x2,
+                                AppSpacing.x1,
+                                AppSpacing.x2,
+                                AppSpacing.x2,
+                              ),
+                              children: [
+                                Text(
+                                  'Filtrar por “Subido por”',
+                                  style: AppTextStyles.title.copyWith(fontSize: 16),
+                                ),
+                                const SizedBox(height: AppSpacing.x1),
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('Todos'),
+                                  trailing: (fotos.uploaderFilterUserId == null)
+                                      ? const Icon(Icons.check, color: AppColors.joinAccent)
+                                      : null,
+                                  onTap: () {
+                                    context.read<FotosProvider>().clearUploaderFilter();
+                                    Navigator.of(ctx).pop();
+                                  },
+                                ),
+                                const Divider(),
+                                for (final o in options)
+                                  ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    title: Text(o.name),
+                                    subtitle: Text('${o.count} ${o.count == 1 ? 'foto' : 'fotos'}'),
+                                    trailing: (fotos.uploaderFilterUserId == o.userId)
+                                        ? const Icon(Icons.check, color: AppColors.joinAccent)
+                                        : null,
+                                    onTap: () {
+                                      context.read<FotosProvider>().setUploaderFilter(o.userId);
+                                      Navigator.of(ctx).pop();
+                                    },
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+              Consumer<FotosProvider>(
+                builder: (context, fotos, _) {
                   return IconButton(
                     onPressed: fotos.toggleGalleryLayout,
                     icon: Icon(
                       fotos.galleryGridMode
                           ? Icons.view_day_outlined
                           : Icons.grid_view_rounded,
+                      color: AppColors.textPrimary,
                     ),
                     tooltip:
                         fotos.galleryGridMode ? 'Modo feed (tipo Instagram)' : 'Modo cuadrícula',
@@ -65,32 +156,13 @@ class _FotosFlowState extends State<FotosFlow> {
                     MaterialPageRoute(builder: (_) => const FotosExportScreen()),
                   );
                 },
-                icon: const Icon(Icons.link),
+                icon: Icon(Icons.link, color: AppColors.textPrimary),
                 tooltip: 'Exportar links',
               ),
             ],
           ),
-          body: StartupBackground(
-            child: screens[_currentIndex],
-          ),
-          bottomNavigationBar: BottomNavigationBar(
-            backgroundColor: AppColors.card,
-            selectedItemColor: AppColors.primary,
-            unselectedItemColor: AppColors.textMuted,
-            elevation: 8,
-            currentIndex: _currentIndex,
-            onTap: (index) => setState(() => _currentIndex = index),
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.photo_library_outlined),
-                label: 'Galería',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.cloud_upload_outlined),
-                label: 'Subir',
-              ),
-            ],
-          ),
+          body: screens[currentIndex],
+          // Sin barra inferior: “Subir foto” queda arriba en el feed.
         ),
       ),
     );

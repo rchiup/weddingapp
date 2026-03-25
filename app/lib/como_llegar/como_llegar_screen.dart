@@ -22,6 +22,8 @@ class _ComoLlegarScreenState extends State<ComoLlegarScreen> {
   bool _loading = true;
   String? _error;
   Map<String, dynamic>? _location;
+  Map<String, dynamic>? _churchLocation;
+  int _selectedDestination = 1; // 0=Iglesia, 1=Fiesta
 
   @override
   void initState() {
@@ -49,15 +51,26 @@ class _ComoLlegarScreenState extends State<ComoLlegarScreen> {
       setState(() {
         _loading = false;
         _location = null;
+        _churchLocation = null;
       });
       return;
     }
     try {
-      final location = await _service.getLocation(eventId);
+      final results = await Future.wait([
+        _service.getLocation(eventId),
+        _service.getChurchLocation(eventId),
+      ]);
+      final location = results[0];
+      final church = results[1];
       if (!mounted) return;
       setState(() {
         _location = location;
+        _churchLocation = church;
         _error = null;
+        // Si no hay fiesta pero sí iglesia, default a iglesia.
+        if (_location == null && _churchLocation != null) {
+          _selectedDestination = 0;
+        }
       });
     } catch (e) {
       if (!mounted) return;
@@ -68,7 +81,7 @@ class _ComoLlegarScreenState extends State<ComoLlegarScreen> {
   }
 
   Future<void> _openWaze() async {
-    final uri = _wazeUri(_location);
+    final uri = _wazeUri(_selectedDestination == 0 ? _churchLocation : _location);
     if (uri == null) return;
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
@@ -76,11 +89,18 @@ class _ComoLlegarScreenState extends State<ComoLlegarScreen> {
   @override
   Widget build(BuildContext context) {
     final eventName = context.watch<UserContextProvider>().eventName ?? 'Evento';
-    final location = _location;
+    final location = _selectedDestination == 0 ? _churchLocation : _location;
     final label = (location?['label'] ?? '').toString().trim();
     final latitude = location?['latitude'];
     final longitude = location?['longitude'];
     final hasCoords = latitude is num && longitude is num;
+    final hasChurch = _churchLocation != null &&
+        (_churchLocation?['latitude'] is num) &&
+        (_churchLocation?['longitude'] is num);
+    final hasParty = _location != null &&
+        (_location?['latitude'] is num) &&
+        (_location?['longitude'] is num);
+    final showSelector = hasChurch && hasParty;
 
     return NestedFlowNavigator(
       child: Scaffold(
@@ -105,7 +125,7 @@ class _ComoLlegarScreenState extends State<ComoLlegarScreen> {
                           width: 44,
                           height: 44,
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.10),
+                            color: AppColors.primary.withValues(alpha: 0.10),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: const Icon(Icons.directions_outlined, color: AppColors.primary),
@@ -120,7 +140,7 @@ class _ComoLlegarScreenState extends State<ComoLlegarScreen> {
                               Text(
                                 hasCoords
                                     ? 'Abre Waze con la ubicación del evento.'
-                                    : 'Aún no configuraron la ubicación del evento.',
+                                    : 'Aún no configuraron la ubicación.',
                                 style: AppTextStyles.subtitle,
                               ),
                             ],
@@ -129,6 +149,28 @@ class _ComoLlegarScreenState extends State<ComoLlegarScreen> {
                       ],
                     ),
                   ),
+                  if (showSelector) ...[
+                    const SizedBox(height: AppSpacing.x2),
+                    CustomCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text('Destino', style: AppTextStyles.title.copyWith(fontSize: 14)),
+                          const SizedBox(height: AppSpacing.x1),
+                          SegmentedButton<int>(
+                            segments: const [
+                              ButtonSegment<int>(value: 0, label: Text('Iglesia')),
+                              ButtonSegment<int>(value: 1, label: Text('Fiesta')),
+                            ],
+                            selected: <int>{_selectedDestination},
+                            onSelectionChanged: (s) {
+                              setState(() => _selectedDestination = s.first);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   if (_error != null) ...[
                     const SizedBox(height: AppSpacing.x2),
                     Text(_error!, style: const TextStyle(color: Colors.red)),
@@ -138,7 +180,12 @@ class _ComoLlegarScreenState extends State<ComoLlegarScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('Destino', style: AppTextStyles.title.copyWith(fontSize: 14)),
+                        Text(
+                          showSelector
+                              ? (_selectedDestination == 0 ? 'Iglesia' : 'Fiesta')
+                              : 'Destino',
+                          style: AppTextStyles.title.copyWith(fontSize: 14),
+                        ),
                         const SizedBox(height: AppSpacing.x1),
                         Text(
                           label.isNotEmpty ? label : 'Ubicación sin nombre',

@@ -18,13 +18,13 @@ class EventJoinFlow extends StatelessWidget {
       create: (_) => EventJoinProvider(),
       child: NestedFlowNavigator(
         child: Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: AppColors.joinLanding,
           appBar: AppBar(
             title: Text(
               'Unirme a un evento',
               style: AppTextStyles.title.copyWith(fontSize: 17, fontWeight: FontWeight.w700),
             ),
-            backgroundColor: AppColors.background,
+            backgroundColor: AppColors.joinLanding,
             leading: IconButton(
               onPressed: () => popOrEntry(context),
               icon: const Icon(Icons.arrow_back),

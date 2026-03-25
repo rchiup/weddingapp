@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../user_context/user_context_provider.dart';
 import '../ui/app_theme.dart';
 import 'foto_model.dart';
+import 'fotos_fullscreen_pager_screen.dart';
 import 'fotos_fullscreen_screen.dart';
 import 'fotos_provider.dart';
 import 'fotos_repository.dart';
@@ -16,12 +17,16 @@ class FotosImageTile extends StatefulWidget {
   final FotoModel photo;
   final String eventId;
   final FotosGalleryTileLayout layout;
+  final int index;
+  final List<FotoModel>? photos;
 
   const FotosImageTile({
     super.key,
     required this.photo,
     required this.eventId,
     this.layout = FotosGalleryTileLayout.grid,
+    this.index = 0,
+    this.photos,
   });
 
   @override
@@ -79,9 +84,9 @@ class _FotosImageTileState extends State<FotosImageTile> {
               return Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _pill(Icons.favorite_rounded, likes),
+                  _pill(Icons.favorite_border, likes),
                   const SizedBox(width: 6),
-                  _pill(Icons.chat_bubble_outline_rounded, com),
+                  _pill(Icons.chat_bubble_outline, com),
                 ],
               );
             },
@@ -92,12 +97,20 @@ class _FotosImageTileState extends State<FotosImageTile> {
 
     return GestureDetector(
       onTap: () async {
+        final list = widget.photos;
+        final usePager = list != null && list.length > 1;
         final deleted = await Navigator.of(context).push<bool>(
           MaterialPageRoute(
-            builder: (_) => FotosFullscreenScreen(
-              photo: widget.photo,
-              eventId: widget.eventId,
-            ),
+            builder: (_) => usePager
+                ? FotosFullscreenPagerScreen(
+                    photos: list,
+                    initialIndex: widget.index,
+                    eventId: widget.eventId,
+                  )
+                : FotosFullscreenScreen(
+                    photo: widget.photo,
+                    eventId: widget.eventId,
+                  ),
           ),
         );
         if (!mounted) return;
@@ -115,23 +128,16 @@ class _FotosImageTileState extends State<FotosImageTile> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: AppRadii.card,
-              boxShadow: AppShadows.soft,
-              border: Border.all(color: AppColors.border),
-            ),
-            child: ClipRRect(
-              borderRadius: AppRadii.card,
-              child: AspectRatio(
-                aspectRatio: widget.layout == FotosGalleryTileLayout.feed ? 4 / 5 : 1,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.network(
+          ClipRRect(
+            borderRadius: AppRadii.galleryTile,
+            child: AspectRatio(
+              aspectRatio: widget.layout == FotosGalleryTileLayout.feed ? 4 / 5 : 1,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ColoredBox(
+                    color: AppColors.border,
+                    child: Image.network(
                       widget.photo.url,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => const Center(
@@ -139,30 +145,35 @@ class _FotosImageTileState extends State<FotosImageTile> {
                       ),
                       loadingBuilder: (context, child, progress) {
                         if (progress == null) return child;
-                        return const Center(child: CircularProgressIndicator());
+                        return Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.galleryUpload,
+                            strokeWidth: 2,
+                          ),
+                        );
                       },
                     ),
-                    if (isGrid)
-                      Positioned(
-                        left: 8,
-                        bottom: 8,
-                        child: metricsPills(),
-                      ),
-                    if (widget.photo.visibility.toLowerCase() == 'novios')
-                      Positioned(
-                        top: 10,
-                        right: 10,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.35),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: const Icon(Icons.lock, size: 14, color: Colors.white),
+                  ),
+                  if (isGrid)
+                    Positioned(
+                      left: 8,
+                      bottom: 8,
+                      child: metricsPills(),
+                    ),
+                  if (widget.photo.visibility.toLowerCase() == 'novios')
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(14),
                         ),
+                        child: const Icon(Icons.lock, size: 14, color: Colors.white),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -183,7 +194,7 @@ class _FotosImageTileState extends State<FotosImageTile> {
                 Icon(
                   Icons.favorite_border,
                   size: widget.layout == FotosGalleryTileLayout.feed ? 18 : 14,
-                  color: AppColors.textPrimary.withOpacity(0.45),
+                  color: AppColors.textPrimary.withValues(alpha: 0.5),
                 ),
                 const SizedBox(width: 4),
                 FutureBuilder<({int count, bool userLiked})?>(
@@ -204,7 +215,7 @@ class _FotosImageTileState extends State<FotosImageTile> {
                 Icon(
                   Icons.chat_bubble_outline,
                   size: widget.layout == FotosGalleryTileLayout.feed ? 18 : 14,
-                  color: AppColors.textPrimary.withOpacity(0.45),
+                  color: AppColors.textPrimary.withValues(alpha: 0.5),
                 ),
                 const SizedBox(width: 4),
                 FutureBuilder<int>(
@@ -231,17 +242,25 @@ class _FotosImageTileState extends State<FotosImageTile> {
 
   Widget _pill(IconData icon, String value) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.45),
+        color: Colors.black.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: Colors.white),
+          Icon(icon, size: 13, color: Colors.white),
           const SizedBox(width: 4),
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              height: 1,
+            ),
+          ),
         ],
       ),
     );
