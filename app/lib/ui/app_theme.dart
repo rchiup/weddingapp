@@ -37,7 +37,7 @@ class AppColors {
 class AppRadii {
   static const card = BorderRadius.all(Radius.circular(24));
   /// Esquinas solo-imagen en grilla de fotos
-  static const galleryTile = BorderRadius.all(Radius.circular(18));
+  static const galleryTile = BorderRadius.all(Radius.circular(24));
   static const button = BorderRadius.all(Radius.circular(16));
   static const pill = BorderRadius.all(Radius.circular(999));
 }

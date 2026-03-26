@@ -55,25 +55,15 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
       provider.loadInitial(eventId, viewerId: viewerId, includePrivate: includePrivate);
     }
 
-    if (provider.isLoading) {
-      return Center(
-        child: CircularProgressIndicator(
-          color: AppColors.galleryUpload,
-        ),
-      );
-    }
-
-    if (provider.photos.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(AppSpacing.x2),
-        child: Center(
-          child: Text(
-            'Aún no hay fotos',
-            style: AppTextStyles.subtitle.copyWith(
-              color: AppColors.textMuted,
-              fontSize: 15,
-            ),
-          ),
+    Widget uploadPill() {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
+        child: CustomButton(
+          label: '+ Subir recuerdo',
+          icon: Icons.photo_camera_outlined,
+          backgroundColor: AppColors.galleryUpload,
+          usePillShape: true,
+          onPressed: widget.onUploadTap,
         ),
       );
     }
@@ -97,23 +87,62 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
               AppSpacing.x1,
             ),
             sliver: SliverToBoxAdapter(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2),
-                    child: CustomButton(
-                      label: 'Subir foto',
-                      icon: Icons.upload_rounded,
-                      backgroundColor: AppColors.galleryUpload,
-                      usePillShape: true,
-                      onPressed: widget.onUploadTap,
+              child: Column(
+                children: [
+                  const SizedBox(height: 4),
+                  Text(
+                    'Revive el momento',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.displaySmall.copyWith(fontSize: 22),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Mira y comparte los recuerdos del dia',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.subtitle,
+                  ),
+                  const SizedBox(height: AppSpacing.x2),
+                  Center(child: uploadPill()),
+                ],
+              ),
+            ),
+          ),
+          if (provider.isLoading)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (provider.photos.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.x2),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Aun no hay recuerdos',
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.displaySmall.copyWith(fontSize: 20),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Se el primero en subir uno.',
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.subtitle,
+                        ),
+                        const SizedBox(height: AppSpacing.x2),
+                        Center(child: uploadPill()),
+                      ],
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
+            )
+          else ...[
           if (useGrid)
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(
@@ -129,8 +158,8 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
                   return SliverGrid(
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: crossAxisCount,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
                       childAspectRatio: 1,
                     ),
                     delegate: SliverChildBuilderDelegate(
@@ -196,6 +225,7 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
                 ),
               ),
             ),
+          ],
         ],
       ),
     );

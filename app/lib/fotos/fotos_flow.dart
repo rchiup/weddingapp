@@ -37,21 +37,22 @@ class _FotosFlowState extends State<FotosFlow> {
             title: Consumer<FotosProvider>(
               builder: (context, fotos, _) {
                 final sub = fotos.isLoading
-                    ? '…'
+                    ? '...'
                     : '${fotos.photoCount} ${fotos.photoCount == 1 ? 'foto' : 'fotos'}';
                 return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '📸 Fotos del evento',
+                      'Revive el momento',
                       style: AppTextStyles.displaySmall.copyWith(fontSize: 20),
                     ),
                     Padding(
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
-                        sub,
+                        'Mira y comparte los recuerdos del dia · $sub',
                         style: AppTextStyles.subtitle.copyWith(fontSize: 12),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ],
@@ -152,7 +153,7 @@ class _FotosFlowState extends State<FotosFlow> {
                     MaterialPageRoute(builder: (_) => const FotosExportScreen()),
                   );
                 },
-                icon: Icon(Icons.link, color: AppColors.textPrimary),
+                icon: const Icon(Icons.link, color: AppColors.textPrimary),
                 tooltip: 'Exportar links',
               ),
             ],

@@ -37,6 +37,7 @@ class _FotosImageTileState extends State<FotosImageTile> {
   Future<({int count, bool userLiked})?>? _likesFuture;
   Future<int>? _commentsCountFuture;
   final FotosRepository _repo = FotosRepository();
+  bool _hover = false;
 
   @override
   void didChangeDependencies() {
@@ -95,10 +96,14 @@ class _FotosImageTileState extends State<FotosImageTile> {
       );
     }
 
-    return GestureDetector(
+    final tile = GestureDetector(
       onTap: () async {
         final list = widget.photos;
         final usePager = list != null && list.length > 1;
+        final uc = context.read<UserContextProvider>();
+        final viewerId = uc.userId ?? '';
+        final includePrivate = uc.isAdmin;
+        final provider = context.read<FotosProvider>();
         final deleted = await Navigator.of(context).push<bool>(
           MaterialPageRoute(
             builder: (_) => usePager
@@ -115,9 +120,7 @@ class _FotosImageTileState extends State<FotosImageTile> {
         );
         if (!mounted) return;
         if (deleted == true) {
-          final viewerId = context.read<UserContextProvider>().userId ?? '';
-          final includePrivate = context.read<UserContextProvider>().isAdmin;
-          context.read<FotosProvider>().refresh(
+          provider.refresh(
                 widget.eventId,
                 viewerId: viewerId,
                 includePrivate: includePrivate,
@@ -128,52 +131,92 @@ class _FotosImageTileState extends State<FotosImageTile> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          ClipRRect(
-            borderRadius: AppRadii.galleryTile,
-            child: AspectRatio(
-              aspectRatio: widget.layout == FotosGalleryTileLayout.feed ? 4 / 5 : 1,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  ColoredBox(
-                    color: AppColors.border,
-                    child: Image.network(
-                      widget.photo.url,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Center(
-                        child: Icon(Icons.broken_image_outlined),
-                      ),
-                      loadingBuilder: (context, child, progress) {
-                        if (progress == null) return child;
-                        return Center(
-                          child: CircularProgressIndicator(
-                            color: AppColors.galleryUpload,
-                            strokeWidth: 2,
-                          ),
-                        );
-                      },
-                    ),
+          AnimatedScale(
+            scale: isGrid && _hover ? 1.02 : 1.0,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              decoration: BoxDecoration(
+                borderRadius: AppRadii.galleryTile,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isGrid && _hover ? 0.14 : 0.10),
+                    blurRadius: isGrid && _hover ? 22 : 16,
+                    offset: const Offset(0, 10),
                   ),
-                  if (isGrid)
-                    Positioned(
-                      left: 8,
-                      bottom: 8,
-                      child: metricsPills(),
-                    ),
-                  if (widget.photo.visibility.toLowerCase() == 'novios')
-                    Positioned(
-                      top: 10,
-                      right: 10,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.35),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(Icons.lock, size: 14, color: Colors.white),
-                      ),
-                    ),
                 ],
+              ),
+              child: ClipRRect(
+                borderRadius: AppRadii.galleryTile,
+                child: AspectRatio(
+                  aspectRatio: widget.layout == FotosGalleryTileLayout.feed ? 4 / 5 : 1,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ColoredBox(
+                        color: AppColors.border,
+                        child: Image.network(
+                          widget.photo.url,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Center(
+                            child: Icon(Icons.broken_image_outlined),
+                          ),
+                          frameBuilder: (context, child, frame, wasSync) {
+                            if (wasSync) return child;
+                            return AnimatedOpacity(
+                              opacity: frame == null ? 0 : 1,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOut,
+                              child: child,
+                            );
+                          },
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
+                            return const SizedBox.expand();
+                          },
+                        ),
+                      ),
+                      // Overlay inferior para métricas.
+                      Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Container(
+                          height: 72,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [
+                                Colors.black.withValues(alpha: 0.40),
+                                Colors.transparent,
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (isGrid)
+                        Positioned(
+                          left: 12,
+                          bottom: 12,
+                          child: metricsPills(),
+                        ),
+                      if (widget.photo.visibility.toLowerCase() == 'novios')
+                        Positioned(
+                          top: 12,
+                          right: 12,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.35),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(Icons.lock, size: 14, color: Colors.white),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -237,6 +280,18 @@ class _FotosImageTileState extends State<FotosImageTile> {
           ],
         ],
       ),
+    );
+
+    return MouseRegion(
+      onEnter: (_) {
+        if (!isGrid) return;
+        setState(() => _hover = true);
+      },
+      onExit: (_) {
+        if (!isGrid) return;
+        setState(() => _hover = false);
+      },
+      child: tile,
     );
   }
 
