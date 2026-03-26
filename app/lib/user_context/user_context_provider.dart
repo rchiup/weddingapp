@@ -131,6 +131,14 @@ class UserContextProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Novios: actualiza solo fecha y hora del evento (prefs locales + notificación).
+  Future<void> updateEventDate(DateTime eventDate) async {
+    final prefs = await SharedPreferences.getInstance();
+    _eventDate = eventDate;
+    await prefs.setString(_prefsEventDateKey, eventDate.toIso8601String());
+    notifyListeners();
+  }
+
   Future<void> clearEvent() async {
     final prefs = await SharedPreferences.getInstance();
     _eventId = null;

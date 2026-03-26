@@ -11,6 +11,7 @@ import '../como_llegar/como_llegar_screen.dart';
 import '../mesas/mesas_flow.dart';
 import '../lista_novios/lista_novios_screen.dart';
 import '../lista_novios/novios_admin_screen.dart';
+import '../rsvp/dietary_choice_screen.dart';
 import '../rsvp/rsvp_flow.dart';
 import '../songs/songs_screen.dart';
 import '../calendar/calendar_screen.dart';
@@ -92,6 +93,11 @@ class AppRouter {
           path: '/rsvp',
           name: 'rsvp',
           builder: (context, state) => const RsvpFlow(),
+        ),
+        GoRoute(
+          path: '/preferencia_menu',
+          name: 'preferencia_menu',
+          builder: (context, state) => const DietaryChoiceScreen(),
         ),
         GoRoute(
           path: '/songs',

@@ -88,4 +88,32 @@ class MesasService {
     });
     return list;
   }
+
+  Future<void> updateGuestTable(String eventId, String guestId, String tableNumber) async {
+    if (eventId.isEmpty || guestId.isEmpty) return;
+    await _firestore
+        .collection('events')
+        .doc(eventId)
+        .collection('guests')
+        .doc(guestId)
+        .update({'tableNumber': tableNumber});
+  }
+
+  /// Quita el número de mesa de todos los invitados en esa mesa.
+  Future<void> clearTable(String eventId, String tableNumber) async {
+    if (eventId.isEmpty || tableNumber.isEmpty) return;
+    final qs = await _firestore
+        .collection('events')
+        .doc(eventId)
+        .collection('guests')
+        .where('tableNumber', isEqualTo: tableNumber)
+        .limit(500)
+        .get();
+    if (qs.docs.isEmpty) return;
+    final batch = _firestore.batch();
+    for (final d in qs.docs) {
+      batch.update(d.reference, {'tableNumber': ''});
+    }
+    await batch.commit();
+  }
 }

@@ -10,21 +10,27 @@ class RsvpProvider extends ChangeNotifier {
   final RsvpRepository _repository = RsvpRepository();
 
   RsvpModel? _rsvp;
-  bool _isLoading = false;
+  bool _fetching = false;
+  bool _saving = false;
 
   RsvpModel? get rsvp => _rsvp;
-  bool get isLoading => _isLoading;
+
+  /// Carga inicial desde Firestore (no bloquea el botón Guardar en detalles).
+  bool get isFetching => _fetching;
+
+  /// Guardado en curso.
+  bool get isSaving => _saving;
 
   /// Carga el RSVP desde backend/Firestore
   Future<void> loadRsvp({
     required String eventId,
     required String userId,
   }) async {
-    _setLoading(true);
+    _setFetching(true);
     try {
       _rsvp = await _repository.getRsvp(eventId: eventId, userId: userId);
     } finally {
-      _setLoading(false);
+      _setFetching(false);
     }
   }
 
@@ -39,7 +45,7 @@ class RsvpProvider extends ChangeNotifier {
     required String allergiesNotes,
     required String dietaryNotes,
   }) async {
-    _setLoading(true);
+    _setSaving(true);
     try {
       final model = RsvpModel(
         id: userId,
@@ -55,12 +61,55 @@ class RsvpProvider extends ChangeNotifier {
       await _repository.saveRsvp(eventId: eventId, userId: userId, rsvp: model);
       notifyListeners();
     } finally {
-      _setLoading(false);
+      _setSaving(false);
     }
   }
 
-  void _setLoading(bool value) {
-    _isLoading = value;
+  /// Actualiza solo la preferencia de menú sin borrar el resto del RSVP.
+  Future<void> saveDietaryPreferenceOnly({
+    required String eventId,
+    required String userId,
+    required String dietaryPreference,
+  }) async {
+    _setSaving(true);
+    try {
+      final existing = _rsvp ?? await _repository.getRsvp(eventId: eventId, userId: userId);
+      final base = existing ??
+          RsvpModel(
+            id: userId,
+            attending: false,
+            plusOne: false,
+            dietaryPreference: 'none',
+            allergies: false,
+            allergiesNotes: '',
+            dietaryNotes: '',
+            updatedAt: DateTime.now(),
+          );
+      final model = RsvpModel(
+        id: userId,
+        attending: base.attending,
+        plusOne: base.plusOne,
+        dietaryPreference: dietaryPreference,
+        allergies: base.allergies,
+        allergiesNotes: base.allergiesNotes,
+        dietaryNotes: base.dietaryNotes,
+        updatedAt: DateTime.now(),
+      );
+      _rsvp = model;
+      await _repository.saveRsvp(eventId: eventId, userId: userId, rsvp: model);
+      notifyListeners();
+    } finally {
+      _setSaving(false);
+    }
+  }
+
+  void _setFetching(bool value) {
+    _fetching = value;
+    notifyListeners();
+  }
+
+  void _setSaving(bool value) {
+    _saving = value;
     notifyListeners();
   }
 }

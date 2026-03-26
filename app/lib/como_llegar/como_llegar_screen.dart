@@ -24,11 +24,45 @@ class _ComoLlegarScreenState extends State<ComoLlegarScreen> {
   Map<String, dynamic>? _location;
   Map<String, dynamic>? _churchLocation;
   int _selectedDestination = 1; // 0=Iglesia, 1=Fiesta
+  /// venue | ceremony | both (lo definen los novios en el panel).
+  String _guestTarget = 'both';
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadLocation());
+  }
+
+  bool _hasValidCoords(Map<String, dynamic>? m) {
+    if (m == null) return false;
+    return m['latitude'] is num && m['longitude'] is num;
+  }
+
+  bool get _hasChurch => _hasValidCoords(_churchLocation);
+  bool get _hasParty => _hasValidCoords(_location);
+
+  bool get _showSelector => _hasChurch && _hasParty && _guestTarget == 'both';
+
+  Map<String, dynamic>? get _effectiveGuestLocation {
+    if (_showSelector) {
+      return _selectedDestination == 0 ? _churchLocation : _location;
+    }
+    if (_guestTarget == 'venue') {
+      if (_hasParty) return _location;
+      if (_hasChurch) return _churchLocation;
+      return null;
+    }
+    if (_guestTarget == 'ceremony') {
+      if (_hasChurch) return _churchLocation;
+      if (_hasParty) return _location;
+      return null;
+    }
+    if (_hasParty && _hasChurch) {
+      return _selectedDestination == 0 ? _churchLocation : _location;
+    }
+    if (_hasParty) return _location;
+    if (_hasChurch) return _churchLocation;
+    return null;
   }
 
   Uri? _wazeUri(Map<String, dynamic>? location) {
@@ -59,15 +93,17 @@ class _ComoLlegarScreenState extends State<ComoLlegarScreen> {
       final results = await Future.wait([
         _service.getLocation(eventId),
         _service.getChurchLocation(eventId),
+        _service.getGuestDirectionsTarget(eventId),
       ]);
-      final location = results[0];
-      final church = results[1];
+      final location = results[0] as Map<String, dynamic>?;
+      final church = results[1] as Map<String, dynamic>?;
+      final target = results[2] as String;
       if (!mounted) return;
       setState(() {
         _location = location;
         _churchLocation = church;
+        _guestTarget = target;
         _error = null;
-        // Si no hay fiesta pero sí iglesia, default a iglesia.
         if (_location == null && _churchLocation != null) {
           _selectedDestination = 0;
         }
@@ -81,26 +117,33 @@ class _ComoLlegarScreenState extends State<ComoLlegarScreen> {
   }
 
   Future<void> _openWaze() async {
-    final uri = _wazeUri(_selectedDestination == 0 ? _churchLocation : _location);
+    final uri = _wazeUri(_effectiveGuestLocation);
     if (uri == null) return;
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  String _destinationTitle() {
+    if (_showSelector) {
+      return _selectedDestination == 0 ? 'Iglesia' : 'Fiesta';
+    }
+    switch (_guestTarget) {
+      case 'ceremony':
+        return 'Ceremonia';
+      case 'venue':
+        return 'Fiesta / recepción';
+      default:
+        return 'Destino';
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final eventName = context.watch<UserContextProvider>().eventName ?? 'Evento';
-    final location = _selectedDestination == 0 ? _churchLocation : _location;
+    final location = _effectiveGuestLocation;
     final label = (location?['label'] ?? '').toString().trim();
     final latitude = location?['latitude'];
     final longitude = location?['longitude'];
     final hasCoords = latitude is num && longitude is num;
-    final hasChurch = _churchLocation != null &&
-        (_churchLocation?['latitude'] is num) &&
-        (_churchLocation?['longitude'] is num);
-    final hasParty = _location != null &&
-        (_location?['latitude'] is num) &&
-        (_location?['longitude'] is num);
-    final showSelector = hasChurch && hasParty;
 
     return NestedFlowNavigator(
       child: Scaffold(
@@ -149,7 +192,7 @@ class _ComoLlegarScreenState extends State<ComoLlegarScreen> {
                       ],
                     ),
                   ),
-                  if (showSelector) ...[
+                  if (_showSelector) ...[
                     const SizedBox(height: AppSpacing.x2),
                     CustomCard(
                       child: Column(
@@ -181,9 +224,7 @@ class _ComoLlegarScreenState extends State<ComoLlegarScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          showSelector
-                              ? (_selectedDestination == 0 ? 'Iglesia' : 'Fiesta')
-                              : 'Destino',
+                          _destinationTitle(),
                           style: AppTextStyles.title.copyWith(fontSize: 14),
                         ),
                         const SizedBox(height: AppSpacing.x1),

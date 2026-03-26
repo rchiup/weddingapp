@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'event_settings_model.dart';
 
 /// Modelo de evento (join)
@@ -18,12 +20,17 @@ class EventModel {
     required this.settings,
   });
 
+  /// Lee `date` tal como viene de Firestore (Timestamp, String ISO o DateTime).
+  static DateTime? parseStoredDate(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is Timestamp) return raw.toDate();
+    if (raw is DateTime) return raw;
+    if (raw is String) return DateTime.tryParse(raw);
+    return null;
+  }
+
   factory EventModel.fromFirestore(String id, Map<String, dynamic> data) {
-    final rawDate = data['date'];
-    final parsedDate = rawDate is DateTime
-        ? rawDate
-        : (rawDate is String ? DateTime.tryParse(rawDate) : null) ??
-            DateTime.now();
+    final parsedDate = parseStoredDate(data['date']) ?? DateTime.now();
 
     return EventModel(
       id: id,

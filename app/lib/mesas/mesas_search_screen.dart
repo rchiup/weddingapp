@@ -22,16 +22,115 @@ class _MesasSearchScreenState extends State<MesasSearchScreen> {
   final _nameController = TextEditingController();
   final _tableController = TextEditingController();
   final _searchController = TextEditingController();
+  final _quickNameController = TextEditingController();
   final _nameFormKey = GlobalKey<FormState>();
   final _tableFormKey = GlobalKey<FormState>();
   String _listQuery = '';
+  String? _quickResult;
+  List<GuestModel>? _quickChoices;
 
   @override
   void dispose() {
     _nameController.dispose();
     _tableController.dispose();
     _searchController.dispose();
+    _quickNameController.dispose();
     super.dispose();
+  }
+
+  String _mesaPhrase(String tableNumber) {
+    final t = tableNumber.trim();
+    if (t.isEmpty) return '👉 Aún sin mesa asignada';
+    return '👉 Estás en la mesa $t';
+  }
+
+  Future<void> _runQuickSearch(BuildContext context, String eventId, MesasProvider provider) async {
+    final q = _quickNameController.text.trim();
+    if (q.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Escribí al menos 2 letras')),
+      );
+      return;
+    }
+    setState(() {
+      _quickResult = null;
+      _quickChoices = null;
+    });
+    await provider.searchGuests(eventId, q);
+    if (!mounted) return;
+    final r = provider.guestResults;
+    if (r.isEmpty) {
+      setState(() => _quickResult = 'No encontramos ese nombre. Probá con otra parte del nombre.');
+      return;
+    }
+    if (r.length == 1) {
+      setState(() => _quickResult = _mesaPhrase(r.first.tableNumber));
+      return;
+    }
+    setState(() => _quickChoices = r);
+  }
+
+  Widget _buildQuickFindCard(
+    BuildContext context,
+    UserContextProvider userContext,
+    MesasProvider provider,
+  ) {
+    final eventId = userContext.eventId ?? '';
+    if (eventId.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.x2),
+      child: CustomCard(
+        padding: const EdgeInsets.all(AppSpacing.x2),
+        elevated: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Busca tu nombre', style: AppTextStyles.title.copyWith(fontSize: 17)),
+            const SizedBox(height: AppSpacing.x1),
+            TextField(
+              controller: _quickNameController,
+              decoration: const InputDecoration(
+                hintText: 'Ej: María García',
+                prefixIcon: Icon(Icons.person_search_outlined),
+              ),
+              textCapitalization: TextCapitalization.words,
+              onSubmitted: (_) => _runQuickSearch(context, eventId, provider),
+            ),
+            const SizedBox(height: AppSpacing.x1),
+            CustomButton(
+              label: 'Ver en qué mesa estoy',
+              onPressed: provider.isLoading ? null : () => _runQuickSearch(context, eventId, provider),
+            ),
+            if (_quickResult != null) ...[
+              const SizedBox(height: AppSpacing.x1),
+              Text(
+                _quickResult!,
+                style: AppTextStyles.title.copyWith(fontSize: 16, color: AppColors.primaryDark),
+              ),
+            ],
+            if (_quickChoices != null && _quickChoices!.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.x1),
+              Text('Varios resultados — elegí uno:', style: AppTextStyles.subtitle),
+              ..._quickChoices!.map(
+                (g) => ListTile(
+                  dense: true,
+                  title: Text(g.name),
+                  subtitle: Text(
+                    g.tableNumber.trim().isEmpty ? 'Sin mesa' : 'Mesa ${g.tableNumber}',
+                  ),
+                  onTap: () {
+                    setState(() {
+                      _quickResult = _mesaPhrase(g.tableNumber);
+                      _quickChoices = null;
+                    });
+                  },
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -88,7 +187,11 @@ class _MesasSearchScreenState extends State<MesasSearchScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.x2, AppSpacing.x2, AppSpacing.x2, AppSpacing.x1),
+          padding: const EdgeInsets.fromLTRB(AppSpacing.x2, AppSpacing.x2, AppSpacing.x2, 0),
+          child: _buildQuickFindCard(context, userContext, provider),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.x2, 0, AppSpacing.x2, AppSpacing.x1),
           child: Text(
             '${provider.allGuests.length} invitados',
             style: AppTextStyles.subtitle,
@@ -198,6 +301,7 @@ class _MesasSearchScreenState extends State<MesasSearchScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _buildQuickFindCard(context, userContext, provider),
           Text('Buscar mi mesa', style: AppTextStyles.displaySmall.copyWith(fontSize: 20)),
           const SizedBox(height: AppSpacing.x2),
           Form(

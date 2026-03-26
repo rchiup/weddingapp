@@ -1,9 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'rsvp_details_screen.dart';
 import 'rsvp_provider.dart';
 import '../user_context/user_context_provider.dart';
+
+Future<void> _openRsvpDetailsAndOfferSongs(
+  BuildContext context, {
+  required bool attending,
+}) async {
+  final saved = await Navigator.of(context).push<bool>(
+    MaterialPageRoute(
+      builder: (_) => RsvpDetailsScreen(attending: attending),
+    ),
+  );
+  if (saved == true && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('¿Querés sugerir una canción infaltable?'),
+        action: SnackBarAction(
+          label: 'Ir',
+          onPressed: () => context.push('/songs'),
+        ),
+      ),
+    );
+  }
+}
 
 /// Pantalla principal de RSVP
 ///
@@ -28,24 +51,28 @@ class RsvpScreen extends StatelessWidget {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 16),
+          if (provider.isFetching) ...[
+            const LinearProgressIndicator(),
+            const SizedBox(height: 8),
+            Text(
+              'Cargando tu RSVP…',
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           ElevatedButton(
-            onPressed: isActive
-                ? () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const RsvpDetailsScreen(attending: true)),
-              );
-                }
+            onPressed: isActive && !provider.isFetching
+                ? () => _openRsvpDetailsAndOfferSongs(context, attending: true)
                 : null,
             child: const Text('Sí, asistiré'),
           ),
           const SizedBox(height: 8),
           OutlinedButton(
-            onPressed: isActive
-                ? () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const RsvpDetailsScreen(attending: false)),
-              );
-                }
+            onPressed: isActive && !provider.isFetching
+                ? () => _openRsvpDetailsAndOfferSongs(context, attending: false)
                 : null,
             child: const Text('No podré asistir'),
           ),

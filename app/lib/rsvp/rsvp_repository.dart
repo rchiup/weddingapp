@@ -10,6 +10,7 @@ class RsvpRepository {
     required String eventId,
     required String userId,
   }) async {
+    if (eventId.isEmpty || userId.isEmpty) return null;
     final data = await _service.getRsvpDoc(eventId: eventId, userId: userId);
     if (data == null) return null;
     return RsvpMapper.fromMap(userId, data);

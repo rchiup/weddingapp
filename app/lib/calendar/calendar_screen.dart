@@ -2,12 +2,46 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../event_join/event_join_service.dart';
 import '../ui/app_theme.dart';
 import '../ui/custom_button.dart';
 import '../user_context/user_context_provider.dart';
 
-class CalendarScreen extends StatelessWidget {
+class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
+
+  @override
+  State<CalendarScreen> createState() => _CalendarScreenState();
+}
+
+class _CalendarScreenState extends State<CalendarScreen> {
+  final EventJoinService _eventService = EventJoinService();
+  DateTime? _resolvedStart;
+  bool _loadingDate = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadEventDate());
+  }
+
+  Future<void> _loadEventDate() async {
+    final ctx = context.read<UserContextProvider>();
+    final id = ctx.eventId;
+    DateTime? fromCloud;
+    if (id != null && id.isNotEmpty) {
+      try {
+        fromCloud = await _eventService.fetchEventDate(id);
+      } catch (_) {
+        fromCloud = null;
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _resolvedStart = fromCloud ?? ctx.eventDate;
+      _loadingDate = false;
+    });
+  }
 
   Uri _googleCalendarUrl({
     required String title,
@@ -41,8 +75,7 @@ class CalendarScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final ctx = context.watch<UserContextProvider>();
     final eventName = ctx.eventName ?? 'Evento';
-    final date = ctx.eventDate;
-
+    final date = _resolvedStart ?? ctx.eventDate;
     final start = date ?? DateTime.now();
     final end = start.add(const Duration(hours: 4));
 
@@ -65,12 +98,20 @@ class CalendarScreen extends StatelessWidget {
               style: AppTextStyles.title.copyWith(fontSize: 18),
             ),
             const SizedBox(height: 6),
-            Text(
-              date == null
-                  ? 'Fecha no disponible en el evento'
-                  : 'Fecha: ${start.day}/${start.month}/${start.year} ${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}',
-              style: AppTextStyles.subtitle,
-            ),
+            if (_loadingDate)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: LinearProgressIndicator(),
+              )
+            else
+              Text(
+                date == null
+                    ? 'Fecha no disponible: pedile a los novios que la configuren en el panel.'
+                    : 'Comienzo: ${start.day}/${start.month}/${start.year} '
+                        '${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')} '
+                        '(duración enviada al calendario: 4 h)',
+                style: AppTextStyles.subtitle,
+              ),
             const SizedBox(height: AppSpacing.x2),
             CustomButton(
               label: 'Agregar a Google Calendar',

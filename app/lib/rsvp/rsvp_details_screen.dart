@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -102,26 +104,59 @@ class _RsvpDetailsScreenState extends State<RsvpDetailsScreen> {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: provider.isLoading || !isActive
+              onPressed: provider.isSaving || !isActive
                   ? null
                   : () async {
                       final eventId = userContext.eventId ?? '';
                       final userId = userContext.userId ?? '';
-                    final nav = Navigator.of(context);
-                      await provider.saveRsvp(
-                        eventId: eventId,
-                        userId: userId,
-                        attending: widget.attending,
-                        plusOne: _plusOne,
-                        dietaryPreference: _dietPreference,
-                        allergies: _hasAllergies,
-                        allergiesNotes: _allergiesController.text.trim(),
-                        dietaryNotes: _dietaryController.text.trim(),
-                      );
-                      if (!mounted) return;
-                    nav.pop();
+                      if (eventId.isEmpty || userId.isEmpty) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'No hay evento o usuario. Volvé al menú e ingresá de nuevo.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      final nav = Navigator.of(context);
+                      try {
+                        await provider.saveRsvp(
+                          eventId: eventId,
+                          userId: userId,
+                          attending: widget.attending,
+                          plusOne: _plusOne,
+                          dietaryPreference: _dietPreference,
+                          allergies: _hasAllergies,
+                          allergiesNotes: _allergiesController.text.trim(),
+                          dietaryNotes: _dietaryController.text.trim(),
+                        );
+                      } on TimeoutException {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'La conexión tardó demasiado. Probá de nuevo.',
+                            ),
+                          ),
+                        );
+                        return;
+                      } catch (_) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'No se pudo guardar. Revisá tu conexión o permisos.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      if (!context.mounted) return;
+                      nav.pop(true);
                     },
-              child: provider.isLoading
+              child: provider.isSaving
                   ? const SizedBox(
                       height: 18,
                       width: 18,

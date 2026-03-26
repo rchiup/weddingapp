@@ -5,7 +5,7 @@ import '../ui/app_theme.dart';
 import '../utils/nav_safe.dart';
 import '../utils/nested_flow_navigator.dart';
 import 'mesas_provider.dart';
-import 'mesas_search_screen.dart';
+import 'mesas_guests_screen.dart';
 
 /// Entry point del flujo de Mesas
 class MesasFlow extends StatelessWidget {
@@ -26,7 +26,7 @@ class MesasFlow extends StatelessWidget {
               tooltip: 'Volver',
             ),
           ),
-          body: const MesasSearchScreen(),
+          body: const MesasGuestsScreen(),
         ),
       ),
     );

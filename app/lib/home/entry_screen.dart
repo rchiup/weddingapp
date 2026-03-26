@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../checkin/checkin_eligibility.dart';
 import '../checkin/checkin_service.dart';
 import '../event_join/event_join_provider.dart';
 import '../event_join/event_join_screen.dart';
@@ -14,6 +16,7 @@ import '../ui/app_theme.dart';
 import '../ui/custom_button.dart';
 import '../ui/custom_card.dart';
 import '../user_context/user_context_provider.dart';
+import 'event_countdown.dart';
 
 /// Pantalla de entrada neutral
 ///
@@ -32,8 +35,15 @@ class _EntryScreenState extends State<EntryScreen> {
   bool _locationDialogShown = false;
   final SolterosService _solterosService = SolterosService();
   final CheckinService _checkinService = CheckinService();
+
+  static const String _createEventUrl = 'https://weddingapp-c6ix.onrender.com';
+
+  Future<void> _openCreateEvent() async {
+    final uri = Uri.tryParse(_createEventUrl);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
   final NoviosRegistryService _registryService = NoviosRegistryService();
-  static const double _autoCheckinRadiusMeters = 250;
   String? _trackedEventId;
 
   @override
@@ -137,19 +147,19 @@ class _EntryScreenState extends State<EntryScreen> {
               children: [
                 Expanded(
                   child: CustomButton(
+                    label: 'No activar',
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.x1_5),
+                Expanded(
+                  child: CustomButton(
                     label: 'Activar',
                     icon: Icons.my_location,
                     onPressed: () async {
                       Navigator.of(ctx).pop();
                       await _tryAutoCheckin(userContext);
                     },
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.x1_5),
-                Expanded(
-                  child: CustomButton(
-                    label: 'No activar',
-                    onPressed: () => Navigator.of(ctx).pop(),
                   ),
                 ),
               ],
@@ -178,6 +188,8 @@ class _EntryScreenState extends State<EntryScreen> {
       final longitude = location?['longitude'];
       if (latitude is! num || longitude is! num) return;
 
+      if (!isCheckinEventDay(userContext.eventDate)) return;
+
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) return;
 
@@ -197,7 +209,7 @@ class _EntryScreenState extends State<EntryScreen> {
         latitude.toDouble(),
         longitude.toDouble(),
       );
-      if (distance > _autoCheckinRadiusMeters) return;
+      if (distance > checkInRadiusMeters) return;
 
       final name = userContext.userName ?? 'Invitado';
       await _checkinService.checkIn(eventId: eventId, userId: userId, name: name);
@@ -316,15 +328,15 @@ class _EntryScreenState extends State<EntryScreen> {
                 children: [
                   Expanded(
                     child: CustomButton(
-                      label: 'Sí',
-                      onPressed: () => Navigator.of(ctx).pop(true),
+                      label: 'No',
+                      onPressed: () => Navigator.of(ctx).pop(false),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.x1_5),
                   Expanded(
                     child: CustomButton(
-                      label: 'No',
-                      onPressed: () => Navigator.of(ctx).pop(false),
+                      label: 'Sí',
+                      onPressed: () => Navigator.of(ctx).pop(true),
                     ),
                   ),
                 ],
@@ -372,15 +384,15 @@ class _EntryScreenState extends State<EntryScreen> {
                 children: [
                   Expanded(
                     child: CustomButton(
-                      label: 'Sí',
-                      onPressed: () => Navigator.of(ctx).pop(true),
+                      label: 'No',
+                      onPressed: () => Navigator.of(ctx).pop(false),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.x1_5),
                   Expanded(
                     child: CustomButton(
-                      label: 'No',
-                      onPressed: () => Navigator.of(ctx).pop(false),
+                      label: 'Sí',
+                      onPressed: () => Navigator.of(ctx).pop(true),
                     ),
                   ),
                 ],
@@ -413,8 +425,6 @@ class _EntryScreenState extends State<EntryScreen> {
     final userContext = context.watch<UserContextProvider>();
     final solteros = context.watch<SolterosProvider>();
     final hasEvent = userContext.eventId != null && userContext.eventId!.isNotEmpty;
-    final eventId = userContext.eventId ?? '';
-    final disableTablesForEvent = eventId.toUpperCase() == 'CAROYNONI';
     _maybeAskName(context, userContext);
     _maybeAskSingle(context, userContext);
     _maybeAskLocation(context, userContext);
@@ -481,8 +491,7 @@ class _EntryScreenState extends State<EntryScreen> {
         emoji: '👥',
         icon: Icons.people_outline,
         label: 'Invitados',
-        onTap: disableTablesForEvent ? null : () => context.push('/mesas'),
-        enabled: !disableTablesForEvent,
+        onTap: () => context.push('/mesas'),
       ),
       _MenuItem(
         emoji: '🎁',
@@ -563,6 +572,7 @@ class _EntryScreenState extends State<EntryScreen> {
                         ],
                       ),
                     ),
+                    EventCountdownChip(eventDate: userContext.eventDate),
                     const SizedBox(height: 8),
                     Text(
                       subtitleHeader,
@@ -616,13 +626,26 @@ class _EntryScreenState extends State<EntryScreen> {
                         const Divider(),
                         const SizedBox(height: AppSpacing.x1),
                         Center(
-                          child: TextButton.icon(
-                            onPressed: () => _confirmExitEvent(context, userContext),
-                            icon: const Icon(Icons.logout_rounded, size: 20),
-                            label: const Text('Salir del evento'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.textMuted,
-                            ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextButton.icon(
+                                onPressed: _openCreateEvent,
+                                icon: const Icon(Icons.open_in_new_rounded, size: 20),
+                                label: const Text('Crea tu propio evento'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppColors.textMuted,
+                                ),
+                              ),
+                              TextButton.icon(
+                                onPressed: () => _confirmExitEvent(context, userContext),
+                                icon: const Icon(Icons.logout_rounded, size: 20),
+                                label: const Text('Salir del evento'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppColors.textMuted,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],

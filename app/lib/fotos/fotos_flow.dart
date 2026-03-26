@@ -26,17 +26,13 @@ class _FotosFlowState extends State<FotosFlow> {
 
   @override
   Widget build(BuildContext context) {
-    final currentIndex = 0;
-    final screens = [
-      FotosFeedScreen(onUploadTap: () => _openUpload(context)),
-    ];
-
     return ChangeNotifierProvider(
       create: (_) => FotosProvider(),
       child: NestedFlowNavigator(
-        child: Scaffold(
-          backgroundColor: AppColors.galleryBackground,
-          appBar: AppBar(
+        child: Builder(
+          builder: (nestedContext) => Scaffold(
+            backgroundColor: AppColors.galleryBackground,
+            appBar: AppBar(
             toolbarHeight: 72,
             title: Consumer<FotosProvider>(
               builder: (context, fotos, _) {
@@ -66,7 +62,7 @@ class _FotosFlowState extends State<FotosFlow> {
             foregroundColor: AppColors.textPrimary,
             surfaceTintColor: Colors.transparent,
             leading: IconButton(
-              onPressed: () => popOrEntry(context),
+              onPressed: () => popOrEntry(nestedContext),
               icon: const Icon(Icons.arrow_back),
               tooltip: 'Volver',
             ),
@@ -83,7 +79,7 @@ class _FotosFlowState extends State<FotosFlow> {
                     onPressed: () async {
                       final options = fotos.uploaderOptions;
                       await showModalBottomSheet<void>(
-                        context: context,
+                        context: nestedContext,
                         showDragHandle: true,
                         backgroundColor: AppColors.card,
                         builder: (ctx) {
@@ -152,7 +148,7 @@ class _FotosFlowState extends State<FotosFlow> {
               ),
               IconButton(
                 onPressed: () {
-                  Navigator.of(context).push(
+                  Navigator.of(nestedContext).push(
                     MaterialPageRoute(builder: (_) => const FotosExportScreen()),
                   );
                 },
@@ -161,8 +157,11 @@ class _FotosFlowState extends State<FotosFlow> {
               ),
             ],
           ),
-          body: screens[currentIndex],
-          // Sin barra inferior: “Subir foto” queda arriba en el feed.
+            body: FotosFeedScreen(
+              onUploadTap: () => _openUpload(nestedContext),
+            ),
+            // Sin barra inferior: “Subir foto” queda arriba en el feed.
+          ),
         ),
       ),
     );

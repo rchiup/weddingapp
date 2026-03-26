@@ -10,6 +10,7 @@ import '../utils/nav_safe.dart';
 import '../ui/app_theme.dart';
 import '../ui/custom_button.dart';
 import '../ui/custom_card.dart';
+import 'checkin_eligibility.dart';
 import 'checkin_service.dart';
 
 /// Pantalla "Ya llegué" - check-in al evento
@@ -23,7 +24,6 @@ class CheckinScreen extends StatefulWidget {
 class _CheckinScreenState extends State<CheckinScreen> {
   final CheckinService _service = CheckinService();
   final NoviosRegistryService _registryService = NoviosRegistryService();
-  static const double _autoCheckinRadiusMeters = 250;
   bool _loading = false;
   bool _done = false;
   bool _loadingArrivals = false;
@@ -66,21 +66,45 @@ class _CheckinScreenState extends State<CheckinScreen> {
     return DateFormat('HH:mm').format(chile);
   }
 
-  Future<void> _doCheckin() async {
-    final userContext = context.read<UserContextProvider>();
-    final eventId = userContext.eventId;
-    final userId = userContext.userId;
-    final name = userContext.userName ?? 'Invitado';
+  void _snack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
 
-    if (eventId == null || eventId.isEmpty || userId == null || userId.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Debes unirte a un evento primero')),
-        );
-      }
-      return;
+  Future<Position?> _getPositionForCheckin() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      _snack('Activa la ubicación del dispositivo para marcar tu llegada.');
+      return null;
     }
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied) {
+      _snack('Sin permiso de ubicación no podemos confirmar que estés en el lugar.');
+      return null;
+    }
+    if (permission == LocationPermission.deniedForever) {
+      _snack('La ubicación está bloqueada. Actívala desde ajustes del navegador o del teléfono.');
+      return null;
+    }
+    try {
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+    } catch (e) {
+      _snack('No se pudo obtener tu ubicación: $e');
+      return null;
+    }
+  }
 
+  /// Tras validar día del evento y distancia ≤ [checkInRadiusMeters].
+  Future<void> _persistCheckIn({
+    required String eventId,
+    required String userId,
+    required String name,
+  }) async {
     setState(() => _loading = true);
     try {
       await _service.checkIn(eventId: eventId, userId: userId, name: name);
@@ -94,11 +118,62 @@ class _CheckinScreenState extends State<CheckinScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No se pudo registrar la llegada: $e')),
-        );
+        _snack('No se pudo registrar la llegada: $e');
       }
     }
+  }
+
+  Future<void> _manualCheckIn() async {
+    final userContext = context.read<UserContextProvider>();
+    final eventId = userContext.eventId;
+    final userId = userContext.userId;
+    final name = userContext.userName ?? 'Invitado';
+
+    if (eventId == null || eventId.isEmpty || userId == null || userId.isEmpty) {
+      _snack('Debes unirte a un evento primero');
+      return;
+    }
+
+    if (!isCheckinEventDay(userContext.eventDate)) {
+      _snack(
+        userContext.eventDate == null
+            ? 'Falta la fecha del evento; sin ella no se puede usar el check-in.'
+            : 'Solo podés marcar llegada el día del evento.',
+      );
+      return;
+    }
+
+    if (_eventLocation == null) await _loadEventLocation();
+    if (!mounted) return;
+    final location = _eventLocation;
+    final latitude = location?['latitude'];
+    final longitude = location?['longitude'];
+    if (latitude is! num || longitude is! num) {
+      _snack('Los novios aún no configuraron la ubicación del evento.');
+      return;
+    }
+
+    setState(() => _loading = true);
+    final position = await _getPositionForCheckin();
+    if (!mounted) return;
+    setState(() => _loading = false);
+    if (position == null) return;
+
+    final distance = Geolocator.distanceBetween(
+      position.latitude,
+      position.longitude,
+      latitude.toDouble(),
+      longitude.toDouble(),
+    );
+    if (distance > checkInRadiusMeters) {
+      _snack(
+        'Tenés que estar a menos de ${checkInRadiusMeters.toInt()} m del lugar '
+        '(estás a ~${distance.toStringAsFixed(0)} m).',
+      );
+      return;
+    }
+
+    await _persistCheckIn(eventId: eventId, userId: userId, name: name);
   }
 
   Future<void> _loadEventLocation() async {
@@ -119,9 +194,23 @@ class _CheckinScreenState extends State<CheckinScreen> {
   Future<void> _enableLocationCheck() async {
     final userContext = context.read<UserContextProvider>();
     final eventId = userContext.eventId;
-    if (eventId == null || eventId.isEmpty) {
+    final userId = userContext.userId;
+    if (eventId == null ||
+        eventId.isEmpty ||
+        userId == null ||
+        userId.isEmpty) {
       if (!mounted) return;
       setState(() => _geoStatus = 'Debes unirte a un evento primero.');
+      return;
+    }
+
+    if (!isCheckinEventDay(userContext.eventDate)) {
+      if (!mounted) return;
+      setState(
+        () => _geoStatus = userContext.eventDate == null
+            ? 'No hay fecha del evento configurada; el check-in no está disponible.'
+            : 'El check-in solo está disponible el día del evento.',
+      );
       return;
     }
 
@@ -180,13 +269,14 @@ class _CheckinScreenState extends State<CheckinScreen> {
       );
 
       if (!mounted) return;
-      if (distance <= _autoCheckinRadiusMeters) {
+      if (distance <= checkInRadiusMeters) {
         setState(() => _geoStatus = 'Estás dentro del rango. Marcando llegada...');
-        await _doCheckin();
+        final name = userContext.userName ?? 'Invitado';
+        await _persistCheckIn(eventId: eventId, userId: userId, name: name);
       } else {
         setState(
           () => _geoStatus =
-              'Te falta aprox. ${distance.toStringAsFixed(0)} m para marcar automático. Igual puedes hacerlo manual.',
+              'Estás a ~${distance.toStringAsFixed(0)} m del lugar. Hace falta estar a menos de ${checkInRadiusMeters.toInt()} m el día del evento.',
         );
       }
     } catch (e) {
@@ -239,7 +329,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
                   Text('Check-in automático', style: AppTextStyles.title),
                   const SizedBox(height: AppSpacing.x1),
                   Text(
-                    'Activa la ubicación para que te marque solo si ya llegaste al evento.',
+                    'Solo el día del evento y estando a menos de ${checkInRadiusMeters.toInt()} m del lugar que configuraron los novios.',
                     style: AppTextStyles.subtitle,
                   ),
                   const SizedBox(height: AppSpacing.x2),
@@ -369,7 +459,8 @@ class _CheckinScreenState extends State<CheckinScreen> {
                   Text('¿Ya llegaste al evento?', style: AppTextStyles.title),
                   const SizedBox(height: AppSpacing.x1),
                   Text(
-                    'Si prefieres no usar ubicación, marca tu llegada manualmente para ver quién más llegó.',
+                    'Necesitamos tu ubicación para comprobar que estés en el lugar. '
+                    'Mismas reglas: día del evento y menos de ${checkInRadiusMeters.toInt()} m.',
                     style: AppTextStyles.subtitle,
                   ),
                   const SizedBox(height: AppSpacing.x2),
@@ -377,7 +468,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
                     label: _loading ? 'Registrando...' : 'Ya llegué',
                     icon: Icons.celebration_outlined,
                     loading: _loading,
-                    onPressed: _loading ? null : _doCheckin,
+                    onPressed: _loading ? null : _manualCheckIn,
                   ),
                 ],
               ),

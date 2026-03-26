@@ -1,8 +1,12 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
+
+import '../event_join/event_join_service.dart';
 import '../ui/app_theme.dart';
 import '../ui/custom_button.dart';
 import '../ui/custom_card.dart';
@@ -35,6 +39,12 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
   Map<String, dynamic>? _partyLocation;
   Map<String, dynamic>? _churchLocation;
   int _editingDestination = 1; // 0=Iglesia, 1=Fiesta
+  bool _savingEventDate = false;
+  String? _eventDateError;
+  final EventJoinService _eventJoinService = EventJoinService();
+  String _guestDirectionsTarget = 'both';
+  bool _savingGuestDirections = false;
+  String? _guestDirectionsError;
 
   @override
   void initState() {
@@ -45,6 +55,7 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
       if (ctx.isAdmin) {
         _loadCurrentUrl();
         _loadCurrentLocation();
+        _loadGuestDirections();
       }
     });
   }
@@ -161,6 +172,122 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
       _setSelectedLocation(latitude.toDouble(), longitude.toDouble(), label: label, clearResults: false);
     } else {
       _locationLabelController.text = label;
+    }
+  }
+
+  Future<void> _loadGuestDirections() async {
+    final ctx = context.read<UserContextProvider>();
+    final eventId = ctx.eventId ?? '';
+    if (eventId.isEmpty) return;
+    try {
+      final t = await NoviosRegistryService().getGuestDirectionsTarget(eventId);
+      if (!mounted) return;
+      setState(() => _guestDirectionsTarget = t);
+    } catch (_) {
+      if (mounted) setState(() => _guestDirectionsTarget = 'both');
+    }
+  }
+
+  Future<void> _saveGuestDirections(String value) async {
+    final ctx = context.read<UserContextProvider>();
+    final eventId = ctx.eventId ?? '';
+    if (eventId.isEmpty) return;
+    final previous = _guestDirectionsTarget;
+    setState(() {
+      _guestDirectionsTarget = value;
+      _savingGuestDirections = true;
+      _guestDirectionsError = null;
+    });
+    try {
+      await NoviosRegistryService().setGuestDirectionsTarget(
+        eventId: eventId,
+        adminCode: _adminCode(eventId),
+        target: value,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Preferencia de “Cómo llegar” guardada ✅')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _guestDirectionsTarget = previous;
+        _guestDirectionsError = '$e';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo guardar: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _savingGuestDirections = false);
+    }
+  }
+
+  Future<void> _pickAndSaveEventDateTime() async {
+    final ctx = context.read<UserContextProvider>();
+    final initial = ctx.eventDate ?? DateTime.now();
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (!mounted || pickedDate == null) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (!mounted || pickedTime == null) return;
+    final combined = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+    await _saveEventDateTime(combined);
+  }
+
+  Future<void> _saveEventDateTime(DateTime dt) async {
+    final ctx = context.read<UserContextProvider>();
+    final eventId = ctx.eventId ?? '';
+    if (eventId.isEmpty) return;
+    setState(() {
+      _savingEventDate = true;
+      _eventDateError = null;
+    });
+    String? cloudErr;
+    try {
+      try {
+        await _eventJoinService
+            .mergeEventDate(eventId: eventId, date: dt)
+            .timeout(const Duration(seconds: 25));
+      } on TimeoutException {
+        cloudErr = 'La sincronización con Firebase tardó demasiado. Revisá la conexión o las reglas.';
+      } catch (e) {
+        cloudErr = '$e';
+      }
+      await ctx.updateEventDate(dt);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _savingEventDate = false;
+          if (cloudErr != null) _eventDateError = cloudErr;
+        });
+      }
+    }
+    if (!mounted) return;
+    if (cloudErr != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Guardado en este dispositivo. No se pudo sincronizar con Firebase: $cloudErr',
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Fecha y hora del evento guardadas ✅')),
+      );
     }
   }
 
@@ -372,6 +499,39 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
                     children: [
                       Row(
                         children: [
+                          const Text('📅 ', style: TextStyle(fontSize: 18)),
+                          Text('Fecha y hora del evento', style: AppTextStyles.title),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.x1),
+                      Text(
+                        'Es la hora de inicio que verán los invitados al usar “Añadir a mi calendario” (Google Calendar, etc.).',
+                        style: AppTextStyles.subtitle,
+                      ),
+                      const SizedBox(height: AppSpacing.x2),
+                      Text(
+                        ctx.eventDate == null
+                            ? 'Todavía no hay fecha en este dispositivo.'
+                            : 'Configurado: ${DateFormat('dd/MM/yyyy HH:mm').format(ctx.eventDate!)}',
+                        style: AppTextStyles.title.copyWith(fontSize: 14),
+                      ),
+                      const SizedBox(height: AppSpacing.x2),
+                      CustomButton(
+                        label: _savingEventDate ? 'Guardando...' : 'Elegir fecha y hora',
+                        icon: Icons.event_available_outlined,
+                        loading: _savingEventDate,
+                        onPressed: _savingEventDate ? null : _pickAndSaveEventDateTime,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.x2),
+                CustomCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
                           const Text('🎁 ', style: TextStyle(fontSize: 18)),
                           Text('Lista de regalos', style: AppTextStyles.title),
                         ],
@@ -400,6 +560,54 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
                         loading: _loading,
                         onPressed: _loading ? null : _saveUrl,
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.x2),
+                CustomCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('🧭 ', style: TextStyle(fontSize: 18)),
+                          Text('Cómo llegar (invitados)', style: AppTextStyles.title),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.x1),
+                      Text(
+                        'Elegí qué dirección ven en “Cómo llegar”. Si solo configuraste una, igual podés dejar “Solo ceremonia” o “Solo fiesta”.',
+                        style: AppTextStyles.subtitle,
+                      ),
+                      const SizedBox(height: AppSpacing.x2),
+                      SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment<String>(
+                            value: 'ceremony',
+                            label: Text('Solo ceremonia'),
+                          ),
+                          ButtonSegment<String>(
+                            value: 'venue',
+                            label: Text('Solo fiesta'),
+                          ),
+                          ButtonSegment<String>(
+                            value: 'both',
+                            label: Text('Ambas'),
+                          ),
+                        ],
+                        selected: <String>{_guestDirectionsTarget},
+                        onSelectionChanged: _savingGuestDirections
+                            ? (_) {}
+                            : (Set<String> next) => _saveGuestDirections(next.first),
+                      ),
+                      if (_savingGuestDirections) ...[
+                        const SizedBox(height: AppSpacing.x1),
+                        const LinearProgressIndicator(),
+                      ],
+                      if (_guestDirectionsError != null) ...[
+                        const SizedBox(height: AppSpacing.x1),
+                        Text(_guestDirectionsError!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                      ],
                     ],
                   ),
                 ),
@@ -613,6 +821,10 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
             if (_locationError != null) ...[
               const SizedBox(height: AppSpacing.x2),
               Text(_locationError!, style: const TextStyle(color: Colors.red)),
+            ],
+            if (_eventDateError != null) ...[
+              const SizedBox(height: AppSpacing.x2),
+              Text(_eventDateError!, style: const TextStyle(color: Colors.red)),
             ],
             if (_loadingLocation) ...[
               const SizedBox(height: AppSpacing.x2),

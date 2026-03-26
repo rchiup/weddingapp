@@ -72,6 +72,43 @@ class NoviosRegistryService {
     );
   }
 
+  /// `venue` | `ceremony` | `both` — qué ven los invitados en "Cómo llegar".
+  Future<String> getGuestDirectionsTarget(String eventId) async {
+    if (eventId.isEmpty) return 'both';
+    try {
+      final res = await _dio.get(
+        '$_backendBaseUrl/api/gallery/event/$eventId/guest_directions',
+      );
+      final data = res.data as Map<String, dynamic>? ?? {};
+      final t = (data['target'] ?? 'both').toString().toLowerCase();
+      if (t == 'venue' || t == 'ceremony' || t == 'both') return t;
+      return 'both';
+    } catch (_) {
+      return 'both';
+    }
+  }
+
+  Future<void> setGuestDirectionsTarget({
+    required String eventId,
+    required String adminCode,
+    required String target,
+  }) async {
+    if (eventId.isEmpty || adminCode.trim().isEmpty) {
+      throw Exception('Faltan datos');
+    }
+    final t = target.toLowerCase();
+    if (t != 'venue' && t != 'ceremony' && t != 'both') {
+      throw Exception('target inválido');
+    }
+    await _dio.post(
+      '$_backendBaseUrl/api/gallery/event/$eventId/guest_directions',
+      data: {
+        'adminCode': adminCode.trim(),
+        'target': t,
+      },
+    );
+  }
+
   Future<void> setChurchLocation({
     required String eventId,
     required String adminCode,
