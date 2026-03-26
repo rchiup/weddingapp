@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -14,7 +15,6 @@ import '../solteros/solteros_service.dart';
 import '../solteros/solteros_provider.dart';
 import '../ui/app_theme.dart';
 import '../ui/custom_button.dart';
-import '../ui/custom_card.dart';
 import '../user_context/user_context_provider.dart';
 import 'event_countdown.dart';
 
@@ -45,6 +45,7 @@ class _EntryScreenState extends State<EntryScreen> {
   }
   final NoviosRegistryService _registryService = NoviosRegistryService();
   String? _trackedEventId;
+  String? _coupleNames;
 
   @override
   void didChangeDependencies() {
@@ -55,6 +56,27 @@ class _EntryScreenState extends State<EntryScreen> {
       _nameDialogShown = false;
       _singleDialogShown = false;
       _locationDialogShown = false;
+      _coupleNames = null;
+      if (id != null && id.trim().isNotEmpty) {
+        _loadCoupleNames(id.trim());
+      }
+    }
+  }
+
+  Future<void> _loadCoupleNames(String eventId) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('events')
+          .doc(eventId)
+          .collection('settings')
+          .doc('public')
+          .get();
+      final data = doc.data() ?? {};
+      final names = (data['coupleNames'] ?? '').toString().trim();
+      if (!mounted) return;
+      setState(() => _coupleNames = names.isEmpty ? null : names);
+    } catch (_) {
+      // silencioso
     }
   }
 
@@ -71,8 +93,15 @@ class _EntryScreenState extends State<EntryScreen> {
   }
 
   String _eventTitle(UserContextProvider ctx) {
+    final fromPanel = (_coupleNames ?? '').trim();
+    if (fromPanel.isNotEmpty) return fromPanel;
     final raw = (ctx.eventName ?? '').trim();
-    if (raw.isEmpty) return 'Carolina & Nicolas';
+    if (raw.isEmpty) return 'Carolina & Nicolás';
+    // Si viene como "Evento XYZ", lo evitamos (look marketplace).
+    final lower = raw.toLowerCase();
+    if (lower.startsWith('evento ')) {
+      return raw.substring(6).trim();
+    }
     return raw;
   }
 
@@ -109,8 +138,9 @@ class _EntryScreenState extends State<EntryScreen> {
     final userId = userContext.userId ?? '';
     final hasName = (userContext.userName ?? '').trim().isNotEmpty;
     final singleDecided = userContext.isSingleForCurrentEvent || userContext.declinedSingleForCurrentEvent;
-    // Admins (novios) no pasan por nombre/solteros, así que pueden ver el prompt directo.
+    // Novios: nunca pedimos ubicación en el home.
     if (eventId.isEmpty || userId.isEmpty) return;
+    if (userContext.isAdmin) return;
     if (!userContext.isAdmin) {
       if (!hasName) return;
       if (!singleDecided) return;
@@ -123,6 +153,18 @@ class _EntryScreenState extends State<EntryScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!context.mounted) return;
       () async {
+        // Si ya tiene permisos de ubicación activos, no volvemos a pedirlos.
+        final locationEnabled = await Geolocator.isLocationServiceEnabled();
+        if (locationEnabled) {
+          final permission = await Geolocator.checkPermission();
+          final alreadyGranted = permission == LocationPermission.whileInUse ||
+              permission == LocationPermission.always;
+          if (alreadyGranted) {
+            await userContext.markLocationPromptedForEvent(eventId);
+            await _tryAutoCheckin(userContext, requestIfDenied: false);
+            return;
+          }
+        }
         // Si ya llegó (manual o por otra sesión), no molestamos con el prompt.
         final alreadyArrived = await _checkinService.hasArrived(eventId: eventId, userId: userId);
         if (!context.mounted) return;
@@ -170,7 +212,7 @@ class _EntryScreenState extends State<EntryScreen> {
                     icon: Icons.my_location,
                     onPressed: () async {
                       Navigator.of(ctx).pop();
-                      await _tryAutoCheckin(userContext);
+                      await _tryAutoCheckin(userContext, requestIfDenied: true);
                     },
                   ),
                 ),
@@ -182,7 +224,10 @@ class _EntryScreenState extends State<EntryScreen> {
     );
   }
 
-  Future<void> _tryAutoCheckin(UserContextProvider userContext) async {
+  Future<void> _tryAutoCheckin(
+    UserContextProvider userContext, {
+    required bool requestIfDenied,
+  }) async {
     final eventId = userContext.eventId ?? '';
     final userId = userContext.userId ?? '';
     if (eventId.isEmpty || userId.isEmpty) return;
@@ -206,7 +251,7 @@ class _EntryScreenState extends State<EntryScreen> {
       if (!serviceEnabled) return;
 
       var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
+      if (permission == LocationPermission.denied && requestIfDenied) {
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.denied ||
@@ -474,56 +519,66 @@ class _EntryScreenState extends State<EntryScreen> {
 
     final menuItems = <_MenuItem>[
       _MenuItem(
-        icon: Icons.photo_camera_outlined,
         label: 'Revive el momento',
+        imageUrl:
+            'https://images.unsplash.com/photo-1523438097201-512ae7d59c71?auto=format&fit=crop&w=1200&q=80',
         onTap: () => context.push('/fotos'),
       ),
       _MenuItem(
-        icon: Icons.celebration_outlined,
-        label: 'Quien esta aca',
+        label: 'Quién está acá',
+        imageUrl:
+            'https://images.unsplash.com/photo-1529655683826-aba9b3e77383?auto=format&fit=crop&w=1200&q=80',
         onTap: () => context.push('/checkin'),
       ),
       _MenuItem(
-        icon: Icons.place_outlined,
-        label: 'Como llegar',
+        label: 'Cómo llegar',
+        imageUrl:
+            'https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=1200&q=80',
         onTap: () => context.push('/como_llegar'),
       ),
       if (userContext.isSingleForCurrentEvent)
         _MenuItem(
-          icon: Icons.favorite_border,
           label: 'Solteros',
+          imageUrl:
+              'https://images.unsplash.com/photo-1520034475321-cbe63696469a?auto=format&fit=crop&w=1200&q=80',
           onTap: () => context.push('/solteros/chats'),
           showBadge: solteros.hasAnyUnread,
         ),
       _MenuItem(
-        icon: Icons.people_outline,
         label: 'Busca tu mesa',
+        imageUrl:
+            'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=1200&q=80',
         onTap: () => context.push('/mesas'),
       ),
       _MenuItem(
-        icon: Icons.card_giftcard_outlined,
         label: 'Regalos',
+        imageUrl:
+            'https://images.unsplash.com/photo-1513279922550-250c2129b13a?auto=format&fit=crop&w=1200&q=80',
         onTap: () => context.push('/lista_novios'),
       ),
       _MenuItem(
-        icon: Icons.fact_check_outlined,
         label: 'Confirma tu asistencia',
+        imageUrl:
+            'https://images.unsplash.com/photo-1529619768328-e3f2f8bb2f7f?auto=format&fit=crop&w=1200&q=80',
         onTap: () => context.push('/rsvp'),
       ),
       _MenuItem(
-        icon: Icons.library_music_outlined,
         label: 'Canciones infaltables',
+        imageUrl:
+            'https://images.unsplash.com/photo-1497032205916-ac775f0649ae?auto=format&fit=crop&w=1200&q=80',
         onTap: () => context.push('/songs'),
       ),
       _MenuItem(
-        icon: Icons.calendar_month_outlined,
-        label: 'Anadir a mi calendario',
+        label: 'Añadir a mi calendario',
+        imageUrl:
+            'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80',
         onTap: () => context.push('/calendar'),
       ),
       if (userContext.isAdmin)
         _MenuItem(
-          icon: Icons.workspace_premium_outlined,
           label: 'Panel de novios',
+          imageUrl:
+              'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1200&q=80',
           onTap: () => context.push('/novios_admin'),
         ),
     ];
@@ -532,20 +587,18 @@ class _EntryScreenState extends State<EntryScreen> {
       backgroundColor: AppColors.menuBackground,
       body: SafeArea(
         bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (hasEvent)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.x2, AppSpacing.x2, AppSpacing.x2, 0),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final wide = constraints.maxWidth >= 760;
-                    final heroHeight = wide ? 380.0 : 310.0;
-                    final titleSize = wide ? 62.0 : 44.0;
-                    final dateSize = wide ? 24.0 : 20.0;
-                    final horizontalPadding = wide ? 56.0 : 30.0;
-                    return ClipRRect(
+        child: LayoutBuilder(
+          builder: (context, page) {
+            final pageWide = page.maxWidth >= 760;
+            final heroHeight = hasEvent ? (pageWide ? 380.0 : 310.0) : 0.0;
+            return Stack(
+              children: [
+                if (hasEvent)
+                  Positioned(
+                    top: AppSpacing.x2,
+                    left: AppSpacing.x2,
+                    right: AppSpacing.x2,
+                    child: ClipRRect(
                       borderRadius: AppRadii.card,
                       child: SizedBox(
                         height: heroHeight,
@@ -580,7 +633,10 @@ class _EntryScreenState extends State<EntryScreen> {
                               ),
                             ),
                             Padding(
-                              padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 28),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: pageWide ? 56 : 30,
+                                vertical: 28,
+                              ),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -597,14 +653,14 @@ class _EntryScreenState extends State<EntryScreen> {
                                     _eventTitle(userContext),
                                     textAlign: TextAlign.center,
                                     style: AppTextStyles.display.copyWith(
-                                      fontSize: titleSize,
+                                      fontSize: pageWide ? 62 : 44,
                                       height: 1.02,
                                       color: AppColors.textPrimary,
                                     ),
                                   ),
                                   const SizedBox(height: 14),
                                   Container(
-                                    width: wide ? 280 : 220,
+                                    width: pageWide ? 280 : 220,
                                     height: 1,
                                     color: AppColors.border.withValues(alpha: 0.9),
                                   ),
@@ -612,7 +668,7 @@ class _EntryScreenState extends State<EntryScreen> {
                                   Text(
                                     _eventDatePretty(userContext),
                                     style: AppTextStyles.title.copyWith(
-                                      fontSize: dateSize,
+                                      fontSize: pageWide ? 24 : 20,
                                       color: AppColors.primaryDark,
                                     ),
                                   ),
@@ -620,7 +676,7 @@ class _EntryScreenState extends State<EntryScreen> {
                                   Text(
                                     'Nos casamos',
                                     style: AppTextStyles.subtitle.copyWith(
-                                      fontSize: wide ? 16 : 15,
+                                      fontSize: pageWide ? 16 : 15,
                                       color: AppColors.textPrimary,
                                     ),
                                   ),
@@ -638,92 +694,89 @@ class _EntryScreenState extends State<EntryScreen> {
                           ],
                         ),
                       ),
-                    );
-                  },
-                ),
-              ),
-            Expanded(
-              child: Container(
-                color: AppColors.menuBackground,
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 720),
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.x2,
-                        AppSpacing.x2,
-                        AppSpacing.x2,
-                        AppSpacing.x3,
-                      ),
-                      physics: const BouncingScrollPhysics(),
-                      children: [
-                        LayoutBuilder(
-                          builder: (context, c) {
-                            final w = c.maxWidth;
-                            final crossAxisCount = w >= 500 ? 3 : 2;
-                            const spacing = 18.0;
-                            return GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: menuItems.length,
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: crossAxisCount,
-                                mainAxisSpacing: spacing,
-                                crossAxisSpacing: spacing,
-                                childAspectRatio: crossAxisCount >= 3 ? 1.0 : 0.96,
-                              ),
-                              itemBuilder: (context, i) {
-                                return _MenuGridCard(item: menuItems[i]);
-                              },
-                            );
-                          },
+                    ),
+                  ),
+                Positioned.fill(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 720),
+                      child: ListView(
+                        padding: EdgeInsets.fromLTRB(
+                          AppSpacing.x2,
+                          hasEvent ? heroHeight + (AppSpacing.x2 * 2) : AppSpacing.x2,
+                          AppSpacing.x2,
+                          AppSpacing.x3,
                         ),
-                        const SizedBox(height: AppSpacing.x2),
-                        Row(
-                          children: [
-                            Expanded(child: Divider(color: AppColors.border.withValues(alpha: 0.9))),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
-                              child: Icon(
-                                Icons.local_florist_outlined,
-                                size: 18,
-                                color: AppColors.textMuted.withValues(alpha: 0.5),
-                              ),
-                            ),
-                            Expanded(child: Divider(color: AppColors.border.withValues(alpha: 0.9))),
-                          ],
-                        ),
-                        const SizedBox(height: AppSpacing.x1_5),
-                        Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
+                        physics: const BouncingScrollPhysics(),
+                        children: [
+                          LayoutBuilder(
+                            builder: (context, c) {
+                              final w = c.maxWidth;
+                              final crossAxisCount = w >= 500 ? 3 : 2;
+                              const spacing = 18.0;
+                              return GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: menuItems.length,
+                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: crossAxisCount,
+                                  mainAxisSpacing: spacing,
+                                  crossAxisSpacing: spacing,
+                                  childAspectRatio: crossAxisCount >= 3 ? 1.0 : 0.96,
+                                ),
+                                itemBuilder: (context, i) {
+                                  return _MenuGridCard(item: menuItems[i]);
+                                },
+                              );
+                            },
+                          ),
+                          const SizedBox(height: AppSpacing.x2),
+                          Row(
                             children: [
-                              TextButton.icon(
-                                onPressed: _openCreateEvent,
-                                icon: const Icon(Icons.open_in_new_rounded, size: 20),
-                                label: const Text('Crea tu propio evento'),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: AppColors.textMuted,
+                              Expanded(child: Divider(color: AppColors.border.withValues(alpha: 0.9))),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                child: Icon(
+                                  Icons.local_florist_outlined,
+                                  size: 18,
+                                  color: AppColors.textMuted.withValues(alpha: 0.5),
                                 ),
                               ),
-                              TextButton.icon(
-                                onPressed: () => _confirmExitEvent(context, userContext),
-                                icon: const Icon(Icons.logout_rounded, size: 20),
-                                label: const Text('Salir del evento'),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: AppColors.textMuted,
-                                ),
-                              ),
+                              Expanded(child: Divider(color: AppColors.border.withValues(alpha: 0.9))),
                             ],
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: AppSpacing.x1_5),
+                          Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                TextButton.icon(
+                                  onPressed: _openCreateEvent,
+                                  icon: const Icon(Icons.open_in_new_rounded, size: 20),
+                                  label: const Text('Crea tu propio evento'),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.textMuted,
+                                  ),
+                                ),
+                                TextButton.icon(
+                                  onPressed: () => _confirmExitEvent(context, userContext),
+                                  icon: const Icon(Icons.logout_rounded, size: 20),
+                                  label: const Text('Salir del evento'),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.textMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
@@ -731,83 +784,102 @@ class _EntryScreenState extends State<EntryScreen> {
 }
 
 class _MenuItem {
-  final IconData icon;
   final String label;
+  final String imageUrl;
   final VoidCallback? onTap;
   final bool showBadge;
 
   _MenuItem({
-    required this.icon,
     required this.label,
+    required this.imageUrl,
     this.onTap,
     this.showBadge = false,
   });
 }
 
-class _MenuGridCard extends StatelessWidget {
+class _MenuGridCard extends StatefulWidget {
   final _MenuItem item;
 
   const _MenuGridCard({required this.item});
 
-  static const double _iconSize = 22;
+  @override
+  State<_MenuGridCard> createState() => _MenuGridCardState();
+}
+
+class _MenuGridCardState extends State<_MenuGridCard> {
+  bool _hover = false;
 
   @override
   Widget build(BuildContext context) {
+    final item = widget.item;
     final enabled = item.onTap != null;
 
-    final core = CustomCard(
-      onTap: enabled ? item.onTap : null,
-      elevated: enabled,
-      padding: EdgeInsets.zero,
+    final radius = BorderRadius.circular(26);
+
+    final imageCard = ClipRRect(
+      borderRadius: radius,
       child: Stack(
-        clipBehavior: Clip.hardEdge,
+        fit: StackFit.expand,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: AppColors.blush,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Icon(
-                    item.icon,
-                    size: _iconSize,
-                    color: AppColors.gridIconTint,
+          Image.network(
+            item.imageUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) {
+              return Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [Color(0xFF2F3A3D), Color(0xFF8C9A95)],
                   ),
                 ),
-                const SizedBox(height: 14),
-                Text(
-                  item.label,
-                  textAlign: TextAlign.center,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.title.copyWith(
-                    fontSize: 16,
-                    height: 1.2,
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w500,
-                  ),
+              );
+            },
+          ),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              gradient: LinearGradient(
+                colors: [
+                  Colors.black.withValues(alpha: 0.30),
+                  Colors.black.withValues(alpha: 0.18),
+                ],
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+              ),
+            ),
+          ),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Text(
+                item.label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.displaySmall.copyWith(
+                  fontSize: 20,
+                  height: 1.1,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  shadows: const [
+                    Shadow(color: Color(0x66000000), blurRadius: 14, offset: Offset(0, 6)),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
           if (item.showBadge && enabled)
             Positioned(
-              top: 8,
-              right: 8,
+              top: 12,
+              right: 12,
               child: Container(
                 width: 9,
                 height: 9,
                 decoration: BoxDecoration(
-                  color: AppColors.joinAccent,
+                  color: Colors.white,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.5),
+                  border: Border.all(color: Colors.black.withValues(alpha: 0.25), width: 1),
                 ),
               ),
             ),
@@ -815,11 +887,54 @@ class _MenuGridCard extends StatelessWidget {
       ),
     );
 
-    if (enabled) return core;
+    final core = AnimatedScale(
+      scale: enabled && _hover ? 1.03 : 1.0,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          boxShadow: enabled
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: enabled && _hover ? 0.14 : 0.10),
+                    blurRadius: enabled && _hover ? 26 : 18,
+                    offset: const Offset(0, 10),
+                  ),
+                ]
+              : AppShadows.soft,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: radius,
+            onTap: enabled ? item.onTap : null,
+            child: imageCard,
+          ),
+        ),
+      ),
+    );
+
+    final withHover = MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+      onEnter: (_) {
+        if (!enabled) return;
+        setState(() => _hover = true);
+      },
+      onExit: (_) {
+        if (!enabled) return;
+        setState(() => _hover = false);
+      },
+      child: core,
+    );
+
+    if (enabled) return withHover;
 
     return Opacity(
       opacity: 0.48,
-      child: IgnorePointer(child: core),
+      child: IgnorePointer(child: withHover),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
@@ -25,6 +26,7 @@ class NoviosAdminScreen extends StatefulWidget {
 
 class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
   final _urlController = TextEditingController();
+  final _coupleNamesController = TextEditingController();
   final _searchController = TextEditingController();
   final _latController = TextEditingController();
   final _lngController = TextEditingController();
@@ -32,9 +34,11 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
   final MapController _mapController = MapController();
   bool _loading = false;
   bool _loadingLocation = false;
+  bool _savingCoupleNames = false;
   bool _searching = false;
   String? _error;
   String? _locationError;
+  String? _coupleNamesError;
   List<Map<String, dynamic>> _searchResults = [];
   LatLng _selectedLocation = const LatLng(-33.4489, -70.6693);
   Map<String, dynamic>? _partyLocation;
@@ -54,6 +58,7 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
       if (!mounted) return;
       final ctx = context.read<UserContextProvider>();
       if (ctx.isAdmin) {
+        _loadCoupleNames();
         _loadCurrentUrl();
         _loadCurrentLocation();
         _loadGuestDirections();
@@ -64,6 +69,7 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
   @override
   void dispose() {
     _urlController.dispose();
+    _coupleNamesController.dispose();
     _searchController.dispose();
     _latController.dispose();
     _lngController.dispose();
@@ -72,6 +78,64 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
   }
 
   String _adminCode(String eventId) => '${eventId.toUpperCase()}-NOVIOS';
+
+  Future<void> _loadCoupleNames() async {
+    final ctx = context.read<UserContextProvider>();
+    final eventId = ctx.eventId ?? '';
+    if (eventId.isEmpty) return;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('events')
+          .doc(eventId)
+          .collection('settings')
+          .doc('public')
+          .get();
+      final data = doc.data() ?? {};
+      final value = (data['coupleNames'] ?? '').toString().trim();
+      if (!mounted) return;
+      _coupleNamesController.text = value;
+    } catch (_) {
+      // silencioso
+    }
+  }
+
+  Future<void> _saveCoupleNames() async {
+    final ctx = context.read<UserContextProvider>();
+    final eventId = ctx.eventId ?? '';
+    if (eventId.isEmpty) return;
+    final names = _coupleNamesController.text.trim();
+    if (names.length < 3) {
+      setState(() => _coupleNamesError = 'Escribe los nombres (ej: Carolina y Nicolás)');
+      return;
+    }
+    setState(() {
+      _savingCoupleNames = true;
+      _coupleNamesError = null;
+    });
+    try {
+      await FirebaseFirestore.instance
+          .collection('events')
+          .doc(eventId)
+          .collection('settings')
+          .doc('public')
+          .set(
+        {
+          'coupleNames': names,
+          'updatedAt': DateTime.now().toUtc().toIso8601String(),
+        },
+        SetOptions(merge: true),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nombres guardados')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _coupleNamesError = '$e');
+    } finally {
+      if (mounted) setState(() => _savingCoupleNames = false);
+    }
+  }
 
   void _moveMapToSelectedLocation() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -479,7 +543,7 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.workspace_premium_rounded, color: AppColors.primaryDark, size: 22),
+                      const Icon(Icons.workspace_premium_rounded, color: AppColors.primaryDark, size: 22),
                       const SizedBox(width: AppSpacing.x1_5),
                       Expanded(
                         child: Text(
@@ -494,8 +558,50 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.x2),
-                CustomCard(
+                const CustomCard(
                   child: GuestListUploadCard(),
+                ),
+                const SizedBox(height: AppSpacing.x2),
+                CustomCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('✦ ', style: TextStyle(fontSize: 18)),
+                          Text('Nombres de los novios', style: AppTextStyles.title),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.x1),
+                      Text(
+                        'Esto es lo que verán los invitados en la portada (ej: Carolina y Nicolás).',
+                        style: AppTextStyles.subtitle,
+                      ),
+                      const SizedBox(height: AppSpacing.x2),
+                      TextField(
+                        controller: _coupleNamesController,
+                        decoration: InputDecoration(
+                          labelText: 'Nombres',
+                          errorText: _coupleNamesError,
+                        ),
+                        textCapitalization: TextCapitalization.words,
+                        textInputAction: TextInputAction.done,
+                        onChanged: (_) {
+                          if (_coupleNamesError != null) setState(() => _coupleNamesError = null);
+                        },
+                        onSubmitted: (_) {
+                          if (!_savingCoupleNames) _saveCoupleNames();
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.x2),
+                      CustomButton(
+                        label: _savingCoupleNames ? 'Guardando...' : 'Guardar nombres',
+                        icon: Icons.save_outlined,
+                        loading: _savingCoupleNames,
+                        onPressed: _savingCoupleNames ? null : _saveCoupleNames,
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.x2),
                 CustomCard(
