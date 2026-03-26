@@ -64,6 +64,18 @@ class _EntryScreenState extends State<EntryScreen> {
     return DateFormat('yyyy-MM-dd').format(d);
   }
 
+  String _eventDatePretty(UserContextProvider ctx) {
+    final d = ctx.eventDate;
+    if (d == null) return '17 Enero 2026';
+    return DateFormat('dd MMMM yyyy', 'es').format(d);
+  }
+
+  String _eventTitle(UserContextProvider ctx) {
+    final raw = (ctx.eventName ?? '').trim();
+    if (raw.isEmpty) return 'Carolina & Nicolas';
+    return raw;
+  }
+
   Future<void> _confirmExitEvent(BuildContext context, UserContextProvider userContext) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -457,69 +469,59 @@ class _EntryScreenState extends State<EntryScreen> {
     }
 
     final dateLine = _eventDateLine(userContext);
-    final roleLine = userContext.isAdmin ? '👑 Modo Novios' : 'Invitado';
+    final roleLine = userContext.isAdmin ? 'Modo novios' : 'Invitado';
     final subtitleHeader = [if (dateLine.isNotEmpty) dateLine, roleLine].join(' · ');
 
     final menuItems = <_MenuItem>[
       _MenuItem(
-        emoji: '📸',
         icon: Icons.photo_camera_outlined,
-        label: 'Fotos del evento',
+        label: 'Revive el momento',
         onTap: () => context.push('/fotos'),
       ),
       _MenuItem(
-        emoji: '🎉',
         icon: Icons.celebration_outlined,
-        label: 'Ver quién llegó',
+        label: 'Quien esta aca',
         onTap: () => context.push('/checkin'),
       ),
       _MenuItem(
-        emoji: '🗺️',
         icon: Icons.place_outlined,
-        label: 'Cómo llegar',
+        label: 'Como llegar',
         onTap: () => context.push('/como_llegar'),
       ),
       if (userContext.isSingleForCurrentEvent)
         _MenuItem(
-          emoji: '💘',
           icon: Icons.favorite_border,
           label: 'Solteros',
           onTap: () => context.push('/solteros/chats'),
           showBadge: solteros.hasAnyUnread,
         ),
       _MenuItem(
-        emoji: '👥',
         icon: Icons.people_outline,
-        label: 'Invitados',
+        label: 'Busca tu mesa',
         onTap: () => context.push('/mesas'),
       ),
       _MenuItem(
-        emoji: '🎁',
         icon: Icons.card_giftcard_outlined,
-        label: 'Lista de novios',
+        label: 'Regalos',
         onTap: () => context.push('/lista_novios'),
       ),
       _MenuItem(
-        emoji: '✅',
         icon: Icons.fact_check_outlined,
-        label: 'RSVP',
+        label: 'Confirma tu asistencia',
         onTap: () => context.push('/rsvp'),
       ),
       _MenuItem(
-        emoji: '🎵',
         icon: Icons.library_music_outlined,
         label: 'Canciones infaltables',
         onTap: () => context.push('/songs'),
       ),
       _MenuItem(
-        emoji: '📅',
         icon: Icons.calendar_month_outlined,
-        label: 'Añadir a mi calendario',
+        label: 'Anadir a mi calendario',
         onTap: () => context.push('/calendar'),
       ),
       if (userContext.isAdmin)
         _MenuItem(
-          emoji: '👰🤵',
           icon: Icons.workspace_premium_outlined,
           label: 'Panel de novios',
           onTap: () => context.push('/novios_admin'),
@@ -534,56 +536,110 @@ class _EntryScreenState extends State<EntryScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (hasEvent)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(AppSpacing.x2, 26, AppSpacing.x2, 20),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      AppColors.accentHeaderStart,
-                      AppColors.accentHeaderEnd,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color(0x28000000),
-                      blurRadius: 16,
-                      offset: Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      userContext.eventName ?? 'Tu evento',
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.display.copyWith(
-                        color: Colors.white,
-                        fontSize: 22,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black26,
-                            blurRadius: 8,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.x2, AppSpacing.x2, AppSpacing.x2, 0),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final wide = constraints.maxWidth >= 760;
+                    final heroHeight = wide ? 380.0 : 310.0;
+                    final titleSize = wide ? 62.0 : 44.0;
+                    final dateSize = wide ? 24.0 : 20.0;
+                    final horizontalPadding = wide ? 56.0 : 30.0;
+                    return ClipRRect(
+                      borderRadius: AppRadii.card,
+                      child: SizedBox(
+                        height: heroHeight,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.network(
+                              'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1600&q=80',
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) {
+                                return Container(
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [Color(0xFFD9D1C6), Color(0xFFB9C1B4)],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.white.withValues(alpha: 0.48),
+                                    Colors.white.withValues(alpha: 0.62),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 28),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'SAVE THE DATE',
+                                    style: AppTextStyles.subtitle.copyWith(
+                                      letterSpacing: 3.0,
+                                      color: AppColors.textMuted,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    _eventTitle(userContext),
+                                    textAlign: TextAlign.center,
+                                    style: AppTextStyles.display.copyWith(
+                                      fontSize: titleSize,
+                                      height: 1.02,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Container(
+                                    width: wide ? 280 : 220,
+                                    height: 1,
+                                    color: AppColors.border.withValues(alpha: 0.9),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Text(
+                                    _eventDatePretty(userContext),
+                                    style: AppTextStyles.title.copyWith(
+                                      fontSize: dateSize,
+                                      color: AppColors.primaryDark,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Nos casamos',
+                                    style: AppTextStyles.subtitle.copyWith(
+                                      fontSize: wide ? 16 : 15,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  EventCountdownChip(eventDate: userContext.eventDate),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    subtitleHeader,
+                                    textAlign: TextAlign.center,
+                                    style: AppTextStyles.subtitle.copyWith(fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    EventCountdownChip(eventDate: userContext.eventDate),
-                    const SizedBox(height: 8),
-                    Text(
-                      subtitleHeader,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.94),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
             Expanded(
@@ -605,7 +661,7 @@ class _EntryScreenState extends State<EntryScreen> {
                           builder: (context, c) {
                             final w = c.maxWidth;
                             final crossAxisCount = w >= 500 ? 3 : 2;
-                            const spacing = 14.0;
+                            const spacing = 18.0;
                             return GridView.builder(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
@@ -614,7 +670,7 @@ class _EntryScreenState extends State<EntryScreen> {
                                 crossAxisCount: crossAxisCount,
                                 mainAxisSpacing: spacing,
                                 crossAxisSpacing: spacing,
-                                childAspectRatio: crossAxisCount >= 3 ? 0.9 : 0.88,
+                                childAspectRatio: crossAxisCount >= 3 ? 1.0 : 0.96,
                               ),
                               itemBuilder: (context, i) {
                                 return _MenuGridCard(item: menuItems[i]);
@@ -623,8 +679,21 @@ class _EntryScreenState extends State<EntryScreen> {
                           },
                         ),
                         const SizedBox(height: AppSpacing.x2),
-                        const Divider(),
-                        const SizedBox(height: AppSpacing.x1),
+                        Row(
+                          children: [
+                            Expanded(child: Divider(color: AppColors.border.withValues(alpha: 0.9))),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              child: Icon(
+                                Icons.local_florist_outlined,
+                                size: 18,
+                                color: AppColors.textMuted.withValues(alpha: 0.5),
+                              ),
+                            ),
+                            Expanded(child: Divider(color: AppColors.border.withValues(alpha: 0.9))),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.x1_5),
                         Center(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -662,19 +731,15 @@ class _EntryScreenState extends State<EntryScreen> {
 }
 
 class _MenuItem {
-  final String emoji;
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
-  final bool enabled;
   final bool showBadge;
 
   _MenuItem({
-    required this.emoji,
     required this.icon,
     required this.label,
     this.onTap,
-    this.enabled = true,
     this.showBadge = false,
   });
 }
@@ -684,12 +749,11 @@ class _MenuGridCard extends StatelessWidget {
 
   const _MenuGridCard({required this.item});
 
-  static const double _emojiSize = 24;
-  static const double _iconSize = 28;
+  static const double _iconSize = 22;
 
   @override
   Widget build(BuildContext context) {
-    final enabled = item.enabled && item.onTap != null;
+    final enabled = item.onTap != null;
 
     final core = CustomCard(
       onTap: enabled ? item.onTap : null,
@@ -699,37 +763,35 @@ class _MenuGridCard extends StatelessWidget {
         clipBehavior: Clip.hardEdge,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 18, 12, 14),
+            padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SizedBox(
-                  height: _emojiSize + 4,
-                  child: Center(
-                    child: Text(
-                      item.emoji,
-                      style: const TextStyle(fontSize: _emojiSize, height: 1.1),
-                      textAlign: TextAlign.center,
-                    ),
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppColors.blush,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Icon(
+                    item.icon,
+                    size: _iconSize,
+                    color: AppColors.gridIconTint,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Icon(
-                  item.icon,
-                  size: _iconSize,
-                  color: AppColors.gridIconTint,
-                ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 14),
                 Text(
                   item.label,
                   textAlign: TextAlign.center,
-                  maxLines: 2,
+                  maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.title.copyWith(
-                    fontSize: 13,
+                    fontSize: 16,
                     height: 1.2,
                     color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],

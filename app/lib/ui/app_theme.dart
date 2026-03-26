@@ -1,27 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Paleta estilo “boda” (referencia Lovable): terracota/rosa suave + blush.
+/// Paleta visual para invitacion de matrimonio: sobria, suave y elegante.
 class AppColors {
-  static const primary = Color(0xFFC45C5C);
-  static const primaryDark = Color(0xFF9A4545);
+  static const primary = Color(0xFF7E8E74);
+  static const primaryDark = Color(0xFF4E5D4B);
   /// Fondo general (menú, etc.)
-  static const background = Color(0xFFFDF8F7);
-  /// Fondo pantalla unión evento — crema rosado Lovable (~#FAF5F3)
-  static const joinLanding = Color(0xFFFAF5F3);
-  /// Fondo detrás del menú de módulos (peach muy suave ~#FEF6F2)
-  static const menuBackground = Color(0xFFFEF6F2);
-  /// CTA / corazón outline Lovable (~#BC666B)
-  static const joinAccent = Color(0xFFBC666B);
-  static const blush = Color(0xFFFFF5F3);
-  static const textPrimary = Color(0xFF2D2424);
-  static const textMuted = Color(0xFF7A6F6F);
+  static const background = Color(0xFFF8F5F2);
+  /// Fondo pantalla unión evento.
+  static const joinLanding = Color(0xFFF8F5F2);
+  /// Fondo detrás del menú de módulos.
+  static const menuBackground = Color(0xFFF8F5F2);
+  /// CTA / acento secundario.
+  static const joinAccent = Color(0xFFB8A77E);
+  static const blush = Color(0xFFFDFBF8);
+  static const textPrimary = Color(0xFF2E343D);
+  static const textMuted = Color(0xFF6A7482);
   static const card = Colors.white;
-  static const border = Color(0xFFF0E8E6);
-  /// Cabecera menú: burdeos → ámbar (referencia Lovable / Event Hub)
-  static const accentHeaderStart = Color(0xFF7D2E2E);
-  static const accentHeaderEnd = Color(0xFFE8A84A);
-  static const gridIconTint = Color(0xFFB85A5A);
+  static const border = Color(0xFFE8E0D8);
+  /// Cabecera menú: oliva suave a beige.
+  static const accentHeaderStart = Color(0xFF798B76);
+  static const accentHeaderEnd = Color(0xFFC7B79B);
+  static const gridIconTint = Color(0xFF70828A);
   /// Galería fotos — crema casi blanco (~#FDFBFB, referencia Lovable)
   static const galleryBackground = Color(0xFFFDFBFB);
   /// Botón “Subir foto” en galería (~#C06070)
@@ -35,10 +35,10 @@ class AppColors {
 }
 
 class AppRadii {
-  static const card = BorderRadius.all(Radius.circular(18));
+  static const card = BorderRadius.all(Radius.circular(24));
   /// Esquinas solo-imagen en grilla de fotos
   static const galleryTile = BorderRadius.all(Radius.circular(18));
-  static const button = BorderRadius.all(Radius.circular(14));
+  static const button = BorderRadius.all(Radius.circular(16));
   static const pill = BorderRadius.all(Radius.circular(999));
 }
 
@@ -75,7 +75,7 @@ class AppSpacing {
 class AppTextStyles {
   static TextTheme textTheme([TextTheme? base]) {
     final b = base ?? const TextTheme();
-    return GoogleFonts.interTextTheme(b).apply(
+    return GoogleFonts.latoTextTheme(b).apply(
       bodyColor: AppColors.textPrimary,
       displayColor: AppColors.textPrimary,
     );
@@ -84,25 +84,25 @@ class AppTextStyles {
   /// Títulos de marca / evento (serif).
   static TextStyle get display => GoogleFonts.playfairDisplay(
         fontSize: 26,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
         height: 1.15,
       );
 
   static TextStyle get displaySmall => GoogleFonts.playfairDisplay(
         fontSize: 20,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
       );
 
-  static TextStyle get title => GoogleFonts.inter(
+  static TextStyle get title => GoogleFonts.playfairDisplay(
         fontSize: 18,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
       );
 
-  static TextStyle get subtitle => GoogleFonts.inter(
-        fontSize: 13,
+  static TextStyle get subtitle => GoogleFonts.lato(
+        fontSize: 14,
         fontWeight: FontWeight.w500,
         color: AppColors.textMuted,
       );

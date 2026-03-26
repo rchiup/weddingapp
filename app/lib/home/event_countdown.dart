@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../ui/app_theme.dart';
 
 /// Texto tipo "Faltan 3 meses, 20 días y 6 horas" hasta [target].
 String formatCountdownToEvent(DateTime target) {
@@ -12,7 +13,7 @@ String formatCountdownToEvent(DateTime target) {
     if (past.inHours < 36) {
       return '¡Hoy es el gran día!';
     }
-    return 'Un recuerdo hermoso 💛';
+    return 'Un recuerdo hermoso';
   }
 
   final totalDays = remaining.inDays;
@@ -94,49 +95,36 @@ class _EventCountdownChipState extends State<EventCountdownChip> {
     final line = formatCountdownToEvent(d);
 
     return Padding(
-      padding: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.only(top: 12),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 320),
+          constraints: const BoxConstraints(maxWidth: 460),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(22),
+              color: AppColors.blush.withValues(alpha: 0.88),
+              borderRadius: BorderRadius.circular(999),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.28),
-                width: 1,
+                color: AppColors.border.withValues(alpha: 0.95),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.12),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
             ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Icon(
-                    Icons.schedule_rounded,
-                    size: 18,
-                    color: Colors.white.withValues(alpha: 0.92),
-                  ),
+                const Icon(
+                  Icons.schedule_rounded,
+                  size: 16,
+                  color: AppColors.primaryDark,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
+                const SizedBox(width: 8),
+                Flexible(
                   child: Text(
                     line,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.96),
-                      fontSize: 13,
-                      height: 1.35,
+                    style: AppTextStyles.subtitle.copyWith(
+                      color: AppColors.primaryDark,
                       fontWeight: FontWeight.w600,
-                      letterSpacing: 0.15,
+                      letterSpacing: 0.2,
                     ),
                   ),
                 ),
