@@ -11,6 +11,7 @@ import '../ui/app_theme.dart';
 import '../ui/custom_button.dart';
 import '../ui/custom_card.dart';
 import '../user_context/user_context_provider.dart';
+import '../mesas/guest_list_upload_card.dart';
 import '../utils/nav_safe.dart';
 import '../utils/nested_flow_navigator.dart';
 import 'novios_registry_service.dart';
@@ -491,6 +492,10 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(height: AppSpacing.x2),
+                CustomCard(
+                  child: GuestListUploadCard(),
                 ),
                 const SizedBox(height: AppSpacing.x2),
                 CustomCard(

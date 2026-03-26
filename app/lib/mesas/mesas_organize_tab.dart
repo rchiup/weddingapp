@@ -1,12 +1,10 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../ui/app_theme.dart';
-import '../ui/custom_button.dart';
 import '../user_context/user_context_provider.dart';
+import 'guest_list_upload_card.dart';
 import 'guest_model.dart';
-import 'mesas_guest_upload_service.dart';
 import 'mesas_provider.dart';
 import 'mesas_service.dart';
 
@@ -19,15 +17,8 @@ class MesasOrganizeTab extends StatefulWidget {
 }
 
 class _MesasOrganizeTabState extends State<MesasOrganizeTab> {
-  final MesasGuestUploadService _uploadService = MesasGuestUploadService();
   final MesasService _mesasService = MesasService();
   final Set<String> _extraTables = {};
-  bool _uploading = false;
-
-  String _adminCode(UserContextProvider ctx) {
-    final id = ctx.eventId ?? '';
-    return '${id.toUpperCase()}-NOVIOS';
-  }
 
   int _maxTableNumeric(List<GuestModel> guests) {
     var m = 0;
@@ -70,69 +61,6 @@ class _MesasOrganizeTabState extends State<MesasOrganizeTab> {
       return a.compareTo(b);
     });
     return keys;
-  }
-
-  Future<void> _pickAndUpload(BuildContext context, String eventId, MesasProvider provider) async {
-    final userContext = context.read<UserContextProvider>();
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Reemplazar invitados'),
-        content: const Text(
-          'Se borrará la lista actual de invitados de este evento y se cargará el Excel. ¿Continuar?',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sí, subir')),
-        ],
-      ),
-    );
-    if (confirm != true || !context.mounted) return;
-
-    final pick = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['xlsx'],
-      withData: true,
-    );
-    if (!context.mounted) return;
-    if (pick == null || pick.files.isEmpty) return;
-    final bytes = pick.files.first.bytes;
-    if (bytes == null || bytes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo leer el archivo')),
-      );
-      return;
-    }
-
-    setState(() => _uploading = true);
-    try {
-      final res = await _uploadService.uploadExcel(
-        eventId: eventId,
-        adminCode: _adminCode(userContext),
-        bytes: bytes,
-        filename: pick.files.first.name,
-      );
-      if (!context.mounted) return;
-      await provider.loadAllGuests(eventId);
-      if (!context.mounted) return;
-      setState(() => _extraTables.clear());
-      var msg = 'Importados ${res.imported} invitados';
-      if (res.warnings.isNotEmpty) {
-        msg += '\n\nAvisos:\n${res.warnings.take(5).join('\n')}';
-        if (res.warnings.length > 5) msg += '\n…';
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), duration: const Duration(seconds: 6)),
-      );
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _uploading = false);
-    }
   }
 
   Future<void> _moveGuest(String eventId, GuestModel guest, String newTable, MesasProvider provider) async {
@@ -209,9 +137,13 @@ class _MesasOrganizeTabState extends State<MesasOrganizeTab> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(AppSpacing.x2, AppSpacing.x2, AppSpacing.x2, AppSpacing.x1),
-          child: CustomButton(
-            label: _uploading ? 'Subiendo…' : 'Subir lista de invitados (.xlsx)',
-            onPressed: _uploading ? null : () => _pickAndUpload(context, eventId, provider),
+          child: GuestListUploadCard(
+            showTitle: false,
+            compactDescription: true,
+            afterUpload: (id) async {
+              await provider.loadAllGuests(id);
+              if (mounted) setState(() => _extraTables.clear());
+            },
           ),
         ),
         Padding(
