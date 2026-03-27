@@ -30,15 +30,24 @@ class _CustomButtonState extends State<CustomButton> {
   bool _pressed = false;
 
   @override
+  void didUpdateWidget(CustomButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.loading != widget.loading) {
+      _pressed = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final enabled = widget.onPressed != null && !widget.loading;
     final baseColor = widget.backgroundColor ?? AppColors.primary;
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
       onTapCancel: enabled ? () => setState(() => _pressed = false) : null,
-      onTapUp: enabled
-          ? (_) {
+      onTap: enabled
+          ? () {
               setState(() => _pressed = false);
               widget.onPressed?.call();
             }
@@ -58,12 +67,14 @@ class _CustomButtonState extends State<CustomButton> {
           duration: const Duration(milliseconds: 180),
           opacity: enabled ? 1 : 0.85,
           child: widget.loading
-              ? const SizedBox(
+              ? SizedBox(
+                  key: const ValueKey<String>('custom_btn_loading'),
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                 )
               : Row(
+                  key: const ValueKey<String>('custom_btn_label'),
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (widget.icon != null) ...[

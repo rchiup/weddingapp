@@ -70,8 +70,6 @@ def upload_gallery_image():
 
     try:
 
-        max_size_bytes = 5 * 1024 * 1024
-
         if 'file' not in request.files:
             return jsonify({'error': 'Archivo requerido (file)'}), 400
 
@@ -89,32 +87,43 @@ def upload_gallery_image():
         if not file.filename:
             return jsonify({'error': 'Nombre de archivo inválido'}), 400
 
-        allowed_types = {'image/jpeg', 'image/jpg', 'image/png'}
+        image_types = {'image/jpeg', 'image/jpg', 'image/png', 'image/webp'}
+        video_types = {'video/mp4', 'video/quicktime', 'video/webm'}
+        allowed_types = image_types | video_types
         if file.mimetype not in allowed_types:
-            return jsonify({'error': 'Tipo de archivo inválido'}), 400
+            return jsonify({'error': 'Tipo de archivo inválido. Usa imagen o video MP4/MOV/WEBM'}), 400
+
+        media_type = 'video' if file.mimetype in video_types else 'image'
+        max_size_bytes = (40 if media_type == 'video' else 10) * 1024 * 1024
 
         file_ext = os.path.splitext(file.filename or '')[1].lower() or '.jpg'
-
-        image_id = str(uuid.uuid4())
-
-        destination_path = f'gallery/{event_id}/{user_id}/{image_id}{file_ext}'
+        media_id = str(uuid.uuid4())
+        destination_path = f'gallery/{event_id}/{user_id}/{media_id}{file_ext}'
 
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             file.save(temp_file.name)
             temp_path = temp_file.name
 
         try:
-            image_url = firebase_service.upload_file(
+            file_size = os.path.getsize(temp_path)
+            if file_size > max_size_bytes:
+                limit_mb = int(max_size_bytes / (1024 * 1024))
+                return jsonify({'error': f'Archivo demasiado grande. Máximo {limit_mb}MB'}), 400
+
+            media_url = firebase_service.upload_file(
                 temp_path,
                 destination_path,
                 content_type=file.mimetype,
+                resource_type=media_type,
             )
         finally:
             if os.path.exists(temp_path):
                 os.remove(temp_path)
 
         doc_data = {
-            'imageUrl': image_url,
+            'imageUrl': media_url,
+            'mediaUrl': media_url,
+            'mediaType': media_type,
             'userId': user_id,
             'userName': user_name,
             'visibility': visibility,
@@ -126,7 +135,9 @@ def upload_gallery_image():
 
         return jsonify({
             'photoId': photo_id,
-            'imageUrl': image_url
+            'imageUrl': media_url,
+            'mediaUrl': media_url,
+            'mediaType': media_type,
         }), 201
 
     except Exception as e:
@@ -240,6 +251,8 @@ def get_event_photos(event_id):
             items.append({
                 'photoId': doc.id,
                 'imageUrl': data.get('imageUrl', ''),
+                'mediaUrl': data.get('mediaUrl', data.get('imageUrl', '')),
+                'mediaType': data.get('mediaType', 'image'),
                 'eventId': data.get('eventId', ''),
                 'userId': data.get('userId', ''),
                 'userName': data.get('userName', ''),

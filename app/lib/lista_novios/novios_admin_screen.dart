@@ -13,6 +13,8 @@ import '../ui/custom_button.dart';
 import '../ui/custom_card.dart';
 import '../user_context/user_context_provider.dart';
 import '../mesas/guest_list_upload_card.dart';
+import '../mesas/mesas_organize_tab.dart';
+import '../mesas/mesas_provider.dart';
 import '../utils/nav_safe.dart';
 import '../utils/nested_flow_navigator.dart';
 import 'novios_registry_service.dart';
@@ -77,6 +79,18 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
     super.dispose();
   }
 
+  /// Tras `await` + `notifyListeners()` (p. ej. [UserContextProvider.updateEventDate]),
+  /// un solo `setState` a veces no repinta [CustomButton] en web: el loading queda visible
+  /// aunque el estado ya sea `false`.
+  void _endPanelSave(VoidCallback apply) {
+    if (!mounted) return;
+    setState(apply);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(apply);
+    });
+  }
+
   String _adminCode(String eventId) => '${eventId.toUpperCase()}-NOVIOS';
 
   Future<void> _loadCoupleNames() async {
@@ -102,7 +116,12 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
   Future<void> _saveCoupleNames() async {
     final ctx = context.read<UserContextProvider>();
     final eventId = ctx.eventId ?? '';
-    if (eventId.isEmpty) return;
+    if (eventId.isEmpty) {
+      if (mounted) {
+        setState(() => _coupleNamesError = 'No hay evento activo. Volvé al inicio.');
+      }
+      return;
+    }
     final names = _coupleNamesController.text.trim();
     if (names.length < 3) {
       setState(() => _coupleNamesError = 'Escribe los nombres (ej: Carolina y Nicolás)');
@@ -124,16 +143,35 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
           'updatedAt': DateTime.now().toUtc().toIso8601String(),
         },
         SetOptions(merge: true),
+      ).timeout(
+        const Duration(seconds: 25),
+        onTimeout: () => throw TimeoutException('Firestore no respondió a tiempo'),
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Nombres guardados')),
       );
+    } on TimeoutException {
+      if (!mounted) return;
+      const msg =
+          'Tiempo de espera agotado. Revisá la conexión y que las reglas de Firestore estén desplegadas (events/.../settings).';
+      setState(() => _coupleNamesError = msg);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(msg)));
+    } on FirebaseException catch (e) {
+      if (!mounted) return;
+      final msg = e.code == 'permission-denied'
+          ? 'Permiso denegado en Firestore. Desplegá firestore.rules con la ruta settings/public.'
+          : '${e.code}: ${e.message ?? e.toString()}';
+      setState(() => _coupleNamesError = msg);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } catch (e) {
       if (!mounted) return;
       setState(() => _coupleNamesError = '$e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo guardar: $e')),
+      );
     } finally {
-      if (mounted) setState(() => _savingCoupleNames = false);
+      _endPanelSave(() => _savingCoupleNames = false);
     }
   }
 
@@ -219,7 +257,7 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
       if (!mounted) return;
       setState(() => _locationError = '$e');
     } finally {
-      if (mounted) setState(() => _loadingLocation = false);
+      _endPanelSave(() => _loadingLocation = false);
     }
   }
 
@@ -283,11 +321,14 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
         SnackBar(content: Text('No se pudo guardar: $e')),
       );
     } finally {
-      if (mounted) setState(() => _savingGuestDirections = false);
+      _endPanelSave(() => _savingGuestDirections = false);
     }
   }
 
   Future<void> _pickAndSaveEventDateTime() async {
+    if (_eventDateError != null && mounted) {
+      setState(() => _eventDateError = null);
+    }
     final ctx = context.read<UserContextProvider>();
     final initial = ctx.eventDate ?? DateTime.now();
     final pickedDate = await showDatePicker(
@@ -315,40 +356,65 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
   Future<void> _saveEventDateTime(DateTime dt) async {
     final ctx = context.read<UserContextProvider>();
     final eventId = ctx.eventId ?? '';
-    if (eventId.isEmpty) return;
+    if (eventId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No hay evento activo.')),
+        );
+      }
+      return;
+    }
     setState(() {
       _savingEventDate = true;
       _eventDateError = null;
     });
-    String? cloudErr;
+
+    String? err;
+    var savedLocal = false;
+
+    // 1) Primero prefs; timeout evita colgarse en SharedPreferences (web).
     try {
+      await ctx.updateEventDate(dt).timeout(
+            const Duration(seconds: 12),
+            onTimeout: () => throw TimeoutException('prefs'),
+          );
+      savedLocal = true;
+    } catch (e) {
+      err = 'No se pudo guardar la fecha en el dispositivo: $e';
+    }
+
+    // 2) Firebase: documento events/{eventId}
+    if (err == null) {
       try {
         await _eventJoinService
             .mergeEventDate(eventId: eventId, date: dt)
-            .timeout(const Duration(seconds: 25));
+            .timeout(
+              const Duration(seconds: 25),
+              onTimeout: () => throw TimeoutException('mergeEventDate'),
+            );
       } on TimeoutException {
-        cloudErr = 'La sincronización con Firebase tardó demasiado. Revisá la conexión o las reglas.';
+        err =
+            'No se pudo sincronizar con Firebase (tiempo agotado). Revisá conexión y firestore.rules.';
+      } on FirebaseException catch (e) {
+        err = e.code == 'permission-denied'
+            ? 'Permiso denegado en Firestore. Desplegá reglas para events/{eventId}.'
+            : '${e.code}: ${e.message ?? e.toString()}';
       } catch (e) {
-        cloudErr = '$e';
-      }
-      await ctx.updateEventDate(dt);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _savingEventDate = false;
-          if (cloudErr != null) _eventDateError = cloudErr;
-        });
+        err = '$e';
       }
     }
+
+    _endPanelSave(() {
+      _savingEventDate = false;
+      if (err != null) _eventDateError = err;
+    });
+
     if (!mounted) return;
-    if (cloudErr != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Guardado en este dispositivo. No se pudo sincronizar con Firebase: $cloudErr',
-          ),
-        ),
-      );
+    if (err != null) {
+      final msg = savedLocal
+          ? 'Guardado en este dispositivo. $err'
+          : err;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Fecha y hora del evento guardadas ✅')),
@@ -379,7 +445,7 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
       if (!mounted) return;
       setState(() => _error = '$e');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      _endPanelSave(() => _loading = false);
     }
   }
 
@@ -440,7 +506,7 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
       if (!mounted) return;
       setState(() => _locationError = '$e');
     } finally {
-      if (mounted) setState(() => _loadingLocation = false);
+      _endPanelSave(() => _loadingLocation = false);
     }
   }
 
@@ -467,7 +533,7 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
       if (!mounted) return;
       setState(() => _locationError = '$e');
     } finally {
-      if (mounted) setState(() => _searching = false);
+      _endPanelSave(() => _searching = false);
     }
   }
 
@@ -558,8 +624,57 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.x2),
-                const CustomCard(
-                  child: GuestListUploadCard(),
+                ChangeNotifierProvider(
+                  create: (_) => MesasProvider(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      CustomCard(
+                        child: Builder(
+                          builder: (ctx) => GuestListUploadCard(
+                            afterUpload: (eventId) async {
+                              await ctx.read<MesasProvider>().loadAllGuests(eventId);
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.x2),
+                      CustomCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                const Text('🪑 ', style: TextStyle(fontSize: 18)),
+                                Expanded(
+                                  child: Text(
+                                    'Organizar mesas',
+                                    style: AppTextStyles.title,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppSpacing.x1),
+                            Text(
+                              'Nuevas mesas y asignación por invitado (la lista .xlsx va arriba).',
+                              style: AppTextStyles.subtitle,
+                            ),
+                            const SizedBox(height: AppSpacing.x2),
+                            LayoutBuilder(
+                              builder: (context, _) {
+                                final h = (MediaQuery.sizeOf(context).height * 0.52)
+                                    .clamp(320.0, 640.0);
+                                return SizedBox(
+                                  height: h,
+                                  child: const MesasOrganizeTab(embedUpload: false),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.x2),
                 CustomCard(
@@ -633,6 +748,16 @@ class _NoviosAdminScreenState extends State<NoviosAdminScreen> {
                         loading: _savingEventDate,
                         onPressed: _savingEventDate ? null : _pickAndSaveEventDateTime,
                       ),
+                      if (_eventDateError != null) ...[
+                        const SizedBox(height: AppSpacing.x1),
+                        Text(
+                          _eventDateError!,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

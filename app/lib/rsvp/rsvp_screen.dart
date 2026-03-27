@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../user_context/user_context_provider.dart';
 import 'rsvp_details_screen.dart';
 import 'rsvp_provider.dart';
-import '../user_context/user_context_provider.dart';
 
 Future<void> _openRsvpDetailsAndOfferSongs(
   BuildContext context, {
@@ -40,6 +40,13 @@ class RsvpScreen extends StatelessWidget {
     final userContext = context.watch<UserContextProvider>();
     final current = provider.rsvp;
     final isActive = userContext.eventActive;
+    final eventId = userContext.eventId ?? '';
+    final userId = userContext.userId ?? '';
+    final canTap = isActive && !provider.isFetching && eventId.isNotEmpty && userId.isNotEmpty;
+
+    void retry() {
+      context.read<RsvpProvider>().loadRsvp(eventId: eventId, userId: userId);
+    }
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -51,6 +58,32 @@ class RsvpScreen extends StatelessWidget {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 16),
+          if (eventId.isEmpty || userId.isEmpty) ...[
+            Text(
+              'Falta unirte a un evento o identificarte. Vuelve al inicio y entra con el código.',
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.error,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (provider.loadError != null) ...[
+            Text(
+              provider.loadError!,
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.error,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: provider.isFetching ? null : retry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reintentar'),
+            ),
+            const SizedBox(height: 8),
+          ],
           if (provider.isFetching) ...[
             const LinearProgressIndicator(),
             const SizedBox(height: 8),
@@ -64,14 +97,14 @@ class RsvpScreen extends StatelessWidget {
             const SizedBox(height: 8),
           ],
           ElevatedButton(
-            onPressed: isActive && !provider.isFetching
+            onPressed: canTap
                 ? () => _openRsvpDetailsAndOfferSongs(context, attending: true)
                 : null,
             child: const Text('Sí, asistiré'),
           ),
           const SizedBox(height: 8),
           OutlinedButton(
-            onPressed: isActive && !provider.isFetching
+            onPressed: canTap
                 ? () => _openRsvpDetailsAndOfferSongs(context, attending: false)
                 : null,
             child: const Text('No podré asistir'),

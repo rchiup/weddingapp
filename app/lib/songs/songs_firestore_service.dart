@@ -10,8 +10,19 @@ class SongsFirestoreService {
   }
 
   Future<List<SongModel>> listSongs({required String eventId}) async {
-    final snap = await _songsCol(eventId).orderBy('created_at', descending: true).get();
-    return snap.docs.map((d) => SongModel.fromMap(d.id, d.data())).toList();
+    try {
+      final snap = await _songsCol(eventId).orderBy('created_at', descending: true).get();
+      return snap.docs.map((d) => SongModel.fromMap(d.id, d.data())).toList();
+    } on FirebaseException catch (e) {
+      // Sin índice compuesto u orden: listar todo y ordenar en cliente.
+      if (e.code == 'failed-precondition') {
+        final snap = await _songsCol(eventId).get();
+        final list = snap.docs.map((d) => SongModel.fromMap(d.id, d.data())).toList();
+        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return list;
+      }
+      rethrow;
+    }
   }
 
   Future<void> addSong({

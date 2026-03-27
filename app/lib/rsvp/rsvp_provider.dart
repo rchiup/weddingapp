@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import 'rsvp_model.dart';
 import 'rsvp_repository.dart';
@@ -12,6 +12,9 @@ class RsvpProvider extends ChangeNotifier {
   RsvpModel? _rsvp;
   bool _fetching = false;
   bool _saving = false;
+  String? _loadError;
+  /// Cargas [loadRsvp] solapadas (p. ej. reintento): no bajar `isFetching` hasta la última.
+  int _loadRsvpInFlight = 0;
 
   RsvpModel? get rsvp => _rsvp;
 
@@ -21,16 +24,29 @@ class RsvpProvider extends ChangeNotifier {
   /// Guardado en curso.
   bool get isSaving => _saving;
 
+  /// Error al leer RSVP (red, permisos, etc.).
+  String? get loadError => _loadError;
+
   /// Carga el RSVP desde backend/Firestore
   Future<void> loadRsvp({
     required String eventId,
     required String userId,
   }) async {
+    _loadRsvpInFlight++;
+    _loadError = null;
     _setFetching(true);
     try {
       _rsvp = await _repository.getRsvp(eventId: eventId, userId: userId);
+    } catch (e, st) {
+      debugPrint('RsvpProvider.loadRsvp: $e\n$st');
+      _loadError = 'No se pudo cargar tu RSVP. Revisa conexión o vuelve a intentar.';
+      _rsvp = null;
     } finally {
-      _setFetching(false);
+      _loadRsvpInFlight--;
+      if (_loadRsvpInFlight <= 0) {
+        _loadRsvpInFlight = 0;
+        _setFetching(false);
+      }
     }
   }
 
@@ -106,10 +122,22 @@ class RsvpProvider extends ChangeNotifier {
   void _setFetching(bool value) {
     _fetching = value;
     notifyListeners();
+    // Tras async + otros listenables, un solo notify a veces no repinta en web
+    // (loading infinito aunque `_fetching` ya sea false).
+    if (!value) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
+    }
   }
 
   void _setSaving(bool value) {
     _saving = value;
     notifyListeners();
+    if (!value) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
+    }
   }
 }

@@ -148,7 +148,7 @@ class FotosRepository {
     required XFile file,
     void Function(double progress)? onProgress,
   }) async {
-    final fileName = file.name.isNotEmpty ? file.name : 'upload.jpg';
+    final fileName = file.name.isNotEmpty ? file.name : 'upload.bin';
     final MultipartFile multipartFile;
     if (kIsWeb) {
       final bytes = await file.readAsBytes();
@@ -177,12 +177,14 @@ class FotosRepository {
       );
 
       final data = response.data as Map<String, dynamic>;
-      final url = (data['imageUrl'] ?? '').toString();
+      final url = (data['mediaUrl'] ?? data['imageUrl'] ?? '').toString();
       final photoId = (data['photoId'] ?? '').toString();
+      final mediaType = (data['mediaType'] ?? '').toString().toLowerCase().trim();
 
     final model = FotoModel(
       id: photoId.isEmpty ? DateTime.now().millisecondsSinceEpoch.toString() : photoId,
       url: url,
+      mediaType: mediaType.isEmpty ? (url.contains('.mp4') || url.contains('.mov') || url.contains('.webm') ? 'video' : 'image') : mediaType,
       uploadedBy: userId,
       uploadedByName: userName,
       visibility: visibility,

@@ -72,14 +72,17 @@ class FirebaseService:
 
     # ---------- Storage ----------
 
-    def upload_file(self, file_path, destination_path, content_type=None):
+    def upload_file(self, file_path, destination_path, content_type=None, resource_type=None):
         if self.storage_provider == "cloudinary":
             public_id = self._cloudinary_public_id(destination_path)
+            rt = (resource_type or "image").strip().lower()
+            if rt not in {"image", "video", "raw", "auto"}:
+                rt = "auto"
             upload_result = cloudinary.uploader.upload(
                 file_path,
                 public_id=public_id,
                 overwrite=False,
-                resource_type="image",
+                resource_type=rt,
             )
             return upload_result.get("secure_url") or upload_result.get("url")
 

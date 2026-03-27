@@ -20,6 +20,37 @@ service cloud.firestore {
       allow read, write;
     }
 
+    // RSVP por invitado (mismo patrón demo: UUID en cliente)
+    match /events/{eventId}/rsvps/{userId} {
+      allow read, write;
+    }
+
+    // Código → eventId (lectura al unirse con código)
+    match /events_by_code/{code} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Documento del evento (fecha en calendario, merge desde panel novios)
+    match /events/{eventId} {
+      allow read, write: if true;
+    }
+
+    // settings/public — nombres de novios en portada, etc.
+    match /events/{eventId}/settings/{docId} {
+      allow read, write: if true;
+    }
+
+    // Canciones sugeridas por invitados
+    match /events/{eventId}/songs/{songId} {
+      allow read, write: if true;
+    }
+
+    // Mesas (layout)
+    match /events/{eventId}/tables/{tableId} {
+      allow read, write: if true;
+    }
+
     // Todo lo demás sigue bloqueado
     match /{document=**} {
       allow read, write: if false;

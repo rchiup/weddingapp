@@ -3,10 +3,11 @@ import 'package:provider/provider.dart';
 
 import '../ui/app_theme.dart';
 import '../ui/appear_animation.dart';
-import '../ui/custom_button.dart';
 import '../user_context/user_context_provider.dart';
 import 'fotos_image_tile.dart';
+import 'fotos_photo_filter.dart';
 import 'fotos_provider.dart';
+import 'fotos_upload_pill.dart';
 
 /// Feed de fotos persistentes con paginación
 class FotosFeedScreen extends StatefulWidget {
@@ -42,6 +43,13 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
     }
   }
 
+  static int _crossAxisCountForWidth(double width) {
+    if (width > 1200) return 4;
+    if (width > 800) return 3;
+    if (width > 500) return 2;
+    return 1;
+  }
+
   @override
   Widget build(BuildContext context) {
     final userContext = context.watch<UserContextProvider>();
@@ -55,19 +63,8 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
       provider.loadInitial(eventId, viewerId: viewerId, includePrivate: includePrivate);
     }
 
-    Widget uploadPill() {
-      return ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
-        child: CustomButton(
-          label: '+ Subir recuerdo',
-          icon: Icons.photo_camera_outlined,
-          backgroundColor: AppColors.galleryUpload,
-          usePillShape: true,
-          onPressed: widget.onUploadTap,
-        ),
-      );
-    }
-
+    final raw = provider.photos;
+    final displayPhotos = filterEventPhotosForDisplay(raw);
     final useGrid = provider.galleryGridMode;
 
     return RefreshIndicator(
@@ -89,20 +86,37 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
             sliver: SliverToBoxAdapter(
               child: Column(
                 children: [
-                  const SizedBox(height: 4),
-                  Text(
-                    'Revive el momento',
-                    textAlign: TextAlign.center,
-                    style: AppTextStyles.displaySmall.copyWith(fontSize: 22),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Mira y comparte los recuerdos del dia',
-                    textAlign: TextAlign.center,
-                    style: AppTextStyles.subtitle,
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.x2,
+                      AppSpacing.x2,
+                      AppSpacing.x2,
+                      AppSpacing.x1_5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.55),
+                      borderRadius: AppRadii.card,
+                      border: Border.all(color: AppColors.border.withValues(alpha: 0.6)),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Revive el momento',
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.displaySmall.copyWith(fontSize: 22),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Mira y comparte los recuerdos del día',
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.subtitle,
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.x2),
-                  Center(child: uploadPill()),
+                  Center(child: FotosUploadPill(onPressed: widget.onUploadTap)),
                 ],
               ),
             ),
@@ -112,7 +126,7 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
               hasScrollBody: false,
               child: Center(child: CircularProgressIndicator()),
             )
-          else if (provider.photos.isEmpty)
+          else if (raw.isEmpty)
             SliverFillRemaining(
               hasScrollBody: false,
               child: Padding(
@@ -124,18 +138,48 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Aun no hay recuerdos',
+                          'Aún no hay recuerdos',
                           textAlign: TextAlign.center,
                           style: AppTextStyles.displaySmall.copyWith(fontSize: 20),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Se el primero en subir uno.',
+                          'Sé el primero en subir uno.',
                           textAlign: TextAlign.center,
                           style: AppTextStyles.subtitle,
                         ),
                         const SizedBox(height: AppSpacing.x2),
-                        Center(child: uploadPill()),
+                        Center(child: FotosUploadPill(onPressed: widget.onUploadTap)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else if (displayPhotos.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.x2),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'No hay fotos para mostrar aquí',
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.displaySmall.copyWith(fontSize: 20),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Ocultamos enlaces que no parecen fotos del evento.',
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.subtitle,
+                        ),
+                        const SizedBox(height: AppSpacing.x2),
+                        Center(child: FotosUploadPill(onPressed: widget.onUploadTap)),
                       ],
                     ),
                   ),
@@ -143,88 +187,88 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
               ),
             )
           else ...[
-          if (useGrid)
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.x2,
-                0,
-                AppSpacing.x2,
-                AppSpacing.x3,
-              ),
-              sliver: SliverLayoutBuilder(
-                builder: (context, constraints) {
-                  final w = constraints.crossAxisExtent;
-                  final crossAxisCount = w >= 560 ? 3 : 2;
-                  return SliverGrid(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      mainAxisSpacing: 16,
-                      crossAxisSpacing: 16,
-                      childAspectRatio: 1,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        if (index >= provider.photos.length) {
-                          return const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(16),
-                              child: CircularProgressIndicator(),
+            if (useGrid)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.x2,
+                  0,
+                  AppSpacing.x2,
+                  AppSpacing.x3,
+                ),
+                sliver: SliverLayoutBuilder(
+                  builder: (context, constraints) {
+                    final w = constraints.crossAxisExtent;
+                    final crossAxisCount = _crossAxisCountForWidth(w);
+                    return SliverGrid(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        mainAxisSpacing: 20,
+                        crossAxisSpacing: 20,
+                        childAspectRatio: 1,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          if (index >= displayPhotos.length) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(16),
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          }
+                          final photo = displayPhotos[index];
+                          return StaggerAppear(
+                            index: index,
+                            child: FotosImageTile(
+                              photo: photo,
+                              eventId: eventId,
+                              index: index,
+                              photos: displayPhotos,
                             ),
                           );
-                        }
-                        final photo = provider.photos[index];
-                        return StaggerAppear(
+                        },
+                        childCount: displayPhotos.length + (provider.hasMore ? 1 : 0),
+                      ),
+                    );
+                  },
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.x2,
+                  AppSpacing.x1,
+                  AppSpacing.x2,
+                  AppSpacing.x3,
+                ),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      if (index >= displayPhotos.length) {
+                        return const Padding(
+                          padding: EdgeInsets.all(AppSpacing.x3),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      final photo = displayPhotos[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.x2),
+                        child: StaggerAppear(
                           index: index,
                           child: FotosImageTile(
                             photo: photo,
                             eventId: eventId,
+                            layout: FotosGalleryTileLayout.feed,
                             index: index,
-                            photos: provider.photos,
+                            photos: displayPhotos,
                           ),
-                        );
-                      },
-                      childCount: provider.photos.length + (provider.hasMore ? 1 : 0),
-                    ),
-                  );
-                },
-              ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.x2,
-                AppSpacing.x1,
-                AppSpacing.x2,
-                AppSpacing.x3,
-              ),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    if (index >= provider.photos.length) {
-                      return const Padding(
-                        padding: EdgeInsets.all(AppSpacing.x3),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    final photo = provider.photos[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.x2),
-                      child: StaggerAppear(
-                        index: index,
-                        child: FotosImageTile(
-                          photo: photo,
-                          eventId: eventId,
-                          layout: FotosGalleryTileLayout.feed,
-                          index: index,
-                          photos: provider.photos,
                         ),
-                      ),
-                    );
-                  },
-                  childCount: provider.photos.length + (provider.hasMore ? 1 : 0),
+                      );
+                    },
+                    childCount: displayPhotos.length + (provider.hasMore ? 1 : 0),
+                  ),
                 ),
               ),
-            ),
           ],
         ],
       ),

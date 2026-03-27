@@ -9,7 +9,7 @@ import 'guest_list_template.dart';
 import 'guest_list_template_export.dart';
 import 'mesas_guest_upload_service.dart';
 
-/// Subida de invitados (.xlsx) para novios. Mismo flujo en panel de novios y en Invitados → Organizar.
+/// Subida de invitados (.xlsx) para novios (sola o junto a [MesasOrganizeTab]).
 class GuestListUploadCard extends StatefulWidget {
   const GuestListUploadCard({
     super.key,
@@ -18,13 +18,13 @@ class GuestListUploadCard extends StatefulWidget {
     this.showTitle = true,
   });
 
-  /// Tras importar bien (p. ej. recargar lista en la pestaña Organizar).
+  /// Tras importar bien (p. ej. recargar lista en Organizar mesas).
   final Future<void> Function(String eventId)? afterUpload;
 
   /// Menos texto de formato (cuando ya está explicado arriba).
   final bool compactDescription;
 
-  /// En Invitados → Organizar el título sobra; en panel de novios conviene.
+  /// Si el título ya está en la tarjeta padre, pon `false`.
   final bool showTitle;
 
   @override

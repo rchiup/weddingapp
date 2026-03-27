@@ -36,6 +36,11 @@ class _SongsScreenState extends State<SongsScreen> {
       final items = await _service.listSongs(eventId: eventId);
       if (!mounted) return;
       setState(() => _songs = items);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudieron cargar las canciones: $e')),
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -50,7 +55,13 @@ class _SongsScreenState extends State<SongsScreen> {
     final eventId = ctx.eventId ?? '';
     final userId = ctx.userId ?? '';
     final userName = ctx.userName ?? (ctx.isAdmin ? 'Novios' : 'Invitado');
-    if (eventId.isEmpty || userId.isEmpty) return;
+    if (eventId.isEmpty || userId.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Falta unirte a un evento o identificarte.')),
+      );
+      return;
+    }
 
     setState(() => _loading = true);
     try {
@@ -67,7 +78,16 @@ class _SongsScreenState extends State<SongsScreen> {
       );
       _title.clear();
       _artist.clear();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Canción agregada')),
+      );
       await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo guardar: $e')),
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }

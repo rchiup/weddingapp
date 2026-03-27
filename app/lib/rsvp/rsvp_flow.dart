@@ -15,12 +15,8 @@ class RsvpFlow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userContext = context.read<UserContextProvider>();
-    final eventId = userContext.eventId ?? '';
-    final userId = userContext.userId ?? '';
-
     return ChangeNotifierProvider(
-      create: (_) => RsvpProvider()..loadRsvp(eventId: eventId, userId: userId),
+      create: (_) => RsvpProvider(),
       child: NestedFlowNavigator(
         child: Scaffold(
           appBar: AppBar(
@@ -31,9 +27,39 @@ class RsvpFlow extends StatelessWidget {
               tooltip: 'Volver',
             ),
           ),
-          body: const RsvpScreen(),
+          body: const _RsvpLoadScope(),
         ),
       ),
     );
   }
+}
+
+/// Dispara la carga cuando [UserContextProvider] ya tiene evento/usuario (y si cambian).
+class _RsvpLoadScope extends StatefulWidget {
+  const _RsvpLoadScope();
+
+  @override
+  State<_RsvpLoadScope> createState() => _RsvpLoadScopeState();
+}
+
+class _RsvpLoadScopeState extends State<_RsvpLoadScope> {
+  String? _lastLoadKey;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final uc = context.read<UserContextProvider>();
+    final eventId = uc.eventId ?? '';
+    final userId = uc.userId ?? '';
+    final key = '$eventId|$userId';
+    if (key == _lastLoadKey) return;
+    _lastLoadKey = key;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<RsvpProvider>().loadRsvp(eventId: eventId, userId: userId);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => const RsvpScreen();
 }

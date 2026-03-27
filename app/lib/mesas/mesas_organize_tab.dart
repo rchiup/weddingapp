@@ -8,9 +8,13 @@ import 'guest_model.dart';
 import 'mesas_provider.dart';
 import 'mesas_service.dart';
 
-/// Panel novios: subida Excel y edición de mesas.
+/// Subida Excel (opcional) y edición de mesas.
+///
+/// Si [embedUpload] es `false`, no muestra [GuestListUploadCard] (p. ej. la subida va arriba en el panel de novios).
 class MesasOrganizeTab extends StatefulWidget {
-  const MesasOrganizeTab({super.key});
+  const MesasOrganizeTab({super.key, this.embedUpload = true});
+
+  final bool embedUpload;
 
   @override
   State<MesasOrganizeTab> createState() => _MesasOrganizeTabState();
@@ -135,19 +139,25 @@ class _MesasOrganizeTabState extends State<MesasOrganizeTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.x2, AppSpacing.x2, AppSpacing.x2, AppSpacing.x1),
-          child: GuestListUploadCard(
-            showTitle: false,
-            compactDescription: true,
-            afterUpload: (id) async {
-              await provider.loadAllGuests(id);
-              if (mounted) setState(() => _extraTables.clear());
-            },
+        if (widget.embedUpload)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.x2, AppSpacing.x2, AppSpacing.x2, AppSpacing.x1),
+            child: GuestListUploadCard(
+              showTitle: false,
+              compactDescription: true,
+              afterUpload: (id) async {
+                await provider.loadAllGuests(id);
+                if (mounted) setState(() => _extraTables.clear());
+              },
+            ),
           ),
-        ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2),
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.x2,
+            widget.embedUpload ? AppSpacing.x1 : AppSpacing.x2,
+            AppSpacing.x2,
+            AppSpacing.x1,
+          ),
           child: Wrap(
             spacing: AppSpacing.x1,
             runSpacing: AppSpacing.x1,
