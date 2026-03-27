@@ -33,20 +33,23 @@ class _FotosUploadPillState extends State<FotosUploadPill> {
             borderRadius: BorderRadius.circular(999),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: _hover ? 0.14 : 0.08),
-                blurRadius: _hover ? 22 : 14,
+                color: Colors.black.withValues(alpha: _hover ? 0.10 : 0.06),
+                blurRadius: _hover ? 18 : 12,
                 offset: const Offset(0, 8),
               ),
             ],
           ),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 360),
-            child: CustomButton(
-              label: '+ Subir recuerdo',
-              icon: Icons.photo_camera_outlined,
-              backgroundColor: AppColors.galleryUpload,
-              usePillShape: true,
-              onPressed: widget.onPressed,
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: SizedBox(
+              width: double.infinity,
+              child: CustomButton(
+                label: '+ Subir recuerdo',
+                icon: Icons.photo_camera_outlined,
+                backgroundColor: AppColors.galleryUpload,
+                usePillShape: true,
+                onPressed: widget.onPressed,
+              ),
             ),
           ),
         ),

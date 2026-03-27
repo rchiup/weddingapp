@@ -44,9 +44,8 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
   }
 
   static int _crossAxisCountForWidth(double width) {
-    if (width > 1200) return 4;
-    if (width > 800) return 3;
-    if (width > 500) return 2;
+    if (width > 980) return 3;
+    if (width > 620) return 2;
     return 1;
   }
 
@@ -86,34 +85,16 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
             sliver: SliverToBoxAdapter(
               child: Column(
                 children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.x2,
-                      AppSpacing.x2,
-                      AppSpacing.x2,
-                      AppSpacing.x1_5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.55),
-                      borderRadius: AppRadii.card,
-                      border: Border.all(color: AppColors.border.withValues(alpha: 0.6)),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Revive el momento',
-                          textAlign: TextAlign.center,
-                          style: AppTextStyles.displaySmall.copyWith(fontSize: 22),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Mira y comparte los recuerdos del día',
-                          textAlign: TextAlign.center,
-                          style: AppTextStyles.subtitle,
-                        ),
-                      ],
-                    ),
+                  Text(
+                    'Revive el momento',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.displaySmall.copyWith(fontSize: 22),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Mira y comparte los recuerdos del día',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.subtitle,
                   ),
                   const SizedBox(height: AppSpacing.x2),
                   Center(child: FotosUploadPill(onPressed: widget.onUploadTap)),
@@ -202,8 +183,8 @@ class _FotosFeedScreenState extends State<FotosFeedScreen> {
                     return SliverGrid(
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: crossAxisCount,
-                        mainAxisSpacing: 20,
-                        crossAxisSpacing: 20,
+                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 16,
                         childAspectRatio: 1,
                       ),
                       delegate: SliverChildBuilderDelegate(

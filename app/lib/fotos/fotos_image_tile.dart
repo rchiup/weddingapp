@@ -140,7 +140,7 @@ class _FotosImageTileState extends State<FotosImageTile> {
         mainAxisSize: MainAxisSize.min,
         children: [
           AnimatedScale(
-            scale: _hover ? (isGrid ? 1.03 : 1.02) : 1.0,
+            scale: _hover ? (isGrid ? 1.015 : 1.01) : 1.0,
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeOutCubic,
             child: AnimatedContainer(
@@ -150,8 +150,8 @@ class _FotosImageTileState extends State<FotosImageTile> {
                 borderRadius: AppRadii.galleryTile,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: _hover ? 0.14 : 0.10),
-                    blurRadius: _hover ? (isGrid ? 22 : 18) : 16,
+                    color: Colors.black.withValues(alpha: _hover ? 0.10 : 0.07),
+                    blurRadius: _hover ? (isGrid ? 18 : 15) : 12,
                     offset: const Offset(0, 10),
                   ),
                 ],
@@ -199,7 +199,7 @@ class _FotosImageTileState extends State<FotosImageTile> {
                               begin: Alignment.bottomCenter,
                               end: Alignment.center,
                               colors: [
-                                Colors.black.withValues(alpha: 0.25),
+                                Colors.black.withValues(alpha: 0.18),
                                 Colors.transparent,
                               ],
                             ),
@@ -307,7 +307,7 @@ class _FotosImageTileState extends State<FotosImageTile> {
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.28),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

@@ -43,6 +43,46 @@ class _EntryScreenState extends State<EntryScreen> {
     if (uri == null) return;
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
+
+  Future<void> _openGiftRegistryDirect(UserContextProvider userContext) async {
+    final eventId = (userContext.eventId ?? '').trim();
+    if (eventId.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Debes unirte a un evento primero')),
+      );
+      return;
+    }
+
+    try {
+      final url = (await _registryService.getRegistryUrl(eventId) ?? '').trim();
+      if (!mounted) return;
+      if (url.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aún no está publicada la lista de regalos.')),
+        );
+        return;
+      }
+      final uri = Uri.tryParse(url);
+      if (uri == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('El link de regalos no es válido.')),
+        );
+        return;
+      }
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo abrir el link de regalos.')),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo cargar la lista de regalos.')),
+      );
+    }
+  }
   final NoviosRegistryService _registryService = NoviosRegistryService();
   String? _trackedEventId;
   String? _coupleNames;
@@ -554,7 +594,7 @@ class _EntryScreenState extends State<EntryScreen> {
         label: 'Regalos',
         imageUrl:
             'https://images.unsplash.com/photo-1513279922550-250c2129b13a?auto=format&fit=crop&w=1200&q=80',
-        onTap: () => context.push('/lista_novios'),
+        onTap: () => _openGiftRegistryDirect(userContext),
       ),
       _MenuItem(
         label: 'Confirma tu asistencia',
