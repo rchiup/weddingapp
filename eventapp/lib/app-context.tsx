@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { resolveEventCode } from "@/lib/data";
 
 export type EventSettings = {
   guestsVisible: boolean; tablesVisible: boolean; singlesEnabled: boolean;
@@ -19,12 +20,13 @@ const defaults: EventSettings = { guestsVisible: true, tablesVisible: true, sing
 const empty: AppSession = { userId: "", userName: "", eventId: "", eventName: "", eventDate: "", eventActive: false, isAdmin: false, isSingle: false, singleEventId: "", declinedSingleEventId: "", locationPromptedEventId: "", autoCheckinEventId: "", settings: defaults };
 const key = "wedding_app_session";
 
-type ContextValue = { session: AppSession; ready: boolean; update: (value: Partial<AppSession>) => void; join: (name: string, code: string) => void; leave: () => void };
+type ContextValue = { session: AppSession; ready: boolean; update: (value: Partial<AppSession>) => void; join: (name: string, code: string) => Promise<void>; leave: () => void };
 const AppContext = createContext<ContextValue | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState(empty);
   const [ready, setReady] = useState(false);
+  const refreshedEvent = useRef("");
   useEffect(() => {
     const stored = localStorage.getItem(key);
     const userId = localStorage.getItem("user_id") || crypto.randomUUID();
@@ -33,15 +35,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     else setSession({ ...empty, userId });
     setReady(true);
   }, []);
+  useEffect(() => {
+    if (!ready || !session.eventId || refreshedEvent.current === session.eventId) return;
+    refreshedEvent.current = session.eventId;
+    resolveEventCode(session.eventId).then((event) => {
+      setSession((current) => {
+        if (current.eventId !== event.eventId) return current;
+        const next = { ...current, eventName: event.eventName, eventDate: event.eventDate, eventActive: event.eventActive, settings: { ...defaults, ...(event.settings as Partial<EventSettings>) } };
+        localStorage.setItem(key, JSON.stringify(next));
+        return next;
+      });
+    }).catch(() => { /* conserva la sesión para que una caída temporal no expulse al invitado */ });
+  }, [ready, session.eventId]);
   const persist = (next: AppSession) => { setSession(next); localStorage.setItem(key, JSON.stringify(next)); };
   const value = useMemo<ContextValue>(() => ({
     session, ready,
     update: (partial) => persist({ ...session, ...partial }),
-    join: (name, rawCode) => {
+    join: async (name, rawCode) => {
       const code = rawCode.trim().toUpperCase();
       const isAdmin = code.endsWith("-NOVIOS");
-      const eventId = isAdmin ? code.slice(0, -7) : code;
-      persist({ ...session, userName: name.trim(), eventId, eventName: `Evento ${eventId}`, eventDate: new Date().toISOString(), eventActive: true, isAdmin, declinedSingleEventId: "", locationPromptedEventId: "", autoCheckinEventId: "", settings: defaults });
+      const event = await resolveEventCode(code);
+      const resolvedSettings: EventSettings = {
+        ...defaults,
+        ...(event.settings as Partial<EventSettings>),
+      };
+      persist({ ...session, userName: name.trim(), eventId: event.eventId, eventName: event.eventName, eventDate: event.eventDate, eventActive: event.eventActive, isAdmin, declinedSingleEventId: "", locationPromptedEventId: "", autoCheckinEventId: "", settings: resolvedSettings });
     },
     leave: () => persist({ ...empty, userId: session.userId }),
   }), [session, ready]);
