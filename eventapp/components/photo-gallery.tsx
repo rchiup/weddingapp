@@ -99,6 +99,10 @@ function PhotoTile({ photo, onOpen }: { photo: Photo; onOpen: () => void }) {
   const [comments, setComments] = useState(0);
   const [busy, setBusy] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
+  const [showLikeBurst, setShowLikeBurst] = useState(false);
+  const lastTapAt = useRef(0);
+  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const burstTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -111,10 +115,26 @@ function PhotoTile({ photo, onOpen }: { photo: Photo; onOpen: () => void }) {
     }).catch(() => { /* la foto sigue disponible aunque fallen los contadores */ });
   }, [photo.photoId, session.userId]);
 
-  const toggle = async () => {
+  useEffect(() => () => {
+    if (openTimer.current) clearTimeout(openTimer.current);
+    if (burstTimer.current) clearTimeout(burstTimer.current);
+  }, []);
+
+  const burst = () => {
+    setShowLikeBurst(false);
+    requestAnimationFrame(() => setShowLikeBurst(true));
+    if (burstTimer.current) clearTimeout(burstTimer.current);
+    burstTimer.current = setTimeout(() => setShowLikeBurst(false), 700);
+    if ("vibrate" in navigator) navigator.vibrate(35);
+  };
+
+  const toggle = async (forceLike = false) => {
     if (busy) return;
+    if (forceLike && liked) { burst(); return; }
     const previousLiked = liked; const previousLikes = likes;
-    setLiked(!previousLiked); setLikes(Math.max(0, previousLikes + (previousLiked ? -1 : 1))); setBusy(true);
+    const nextLiked = forceLike ? true : !previousLiked;
+    setLiked(nextLiked); setLikes(Math.max(0, previousLikes + (nextLiked ? 1 : -1))); setBusy(true);
+    if (forceLike) burst();
     try {
       const result = await backend(`/api/gallery/photos/${photo.photoId}/likes/toggle`, {
         method: "POST",
@@ -125,14 +145,27 @@ function PhotoTile({ photo, onOpen }: { photo: Photo; onOpen: () => void }) {
     finally { setBusy(false); }
   };
 
+  const handleMediaClick = () => {
+    const now = performance.now();
+    if (now - lastTapAt.current <= 320) {
+      if (openTimer.current) clearTimeout(openTimer.current);
+      openTimer.current = null; lastTapAt.current = 0;
+      void toggle(true);
+      return;
+    }
+    lastTapAt.current = now;
+    openTimer.current = setTimeout(() => { lastTapAt.current = 0; onOpen(); }, 280);
+  };
+
   const video = photo.mediaType === "video" || /\.(mp4|mov|webm)(\?|$)/i.test(photo.mediaUrl);
   return <article className="photo-card">
-    <button className="photo-media" onClick={onOpen} aria-label={video ? "Abrir video" : "Abrir foto"}>
+    <button className="photo-media" onClick={(event) => event.detail === 0 ? onOpen() : handleMediaClick()} aria-label={video ? "Abrir video" : "Abrir foto"}>
       {imageFailed ? <span className="photo-broken">No pudimos cargar esta foto<br/><small>Toca para reintentar</small></span> : video ? <video src={photo.mediaUrl} muted playsInline preload="metadata" onError={() => setImageFailed(true)} /> : <img src={photo.mediaUrl} alt={`Foto subida por ${photo.userName}`} loading="lazy" onError={() => setImageFailed(true)} />}
       {video && !imageFailed && <span className="play-badge">▶</span>}
       {photo.visibility === "novios" && <span className="private-badge">Sólo novios</span>}
+      {showLikeBurst && <span className="like-burst" aria-hidden="true">♥</span>}
     </button>
-    <div className="photo-meta"><span>Por <b>{photo.userName}</b></span><div className="photo-actions"><button className={liked ? "liked" : ""} onClick={toggle} disabled={busy} aria-label={liked ? "Quitar me gusta" : "Me gusta"}>♥ {likes}</button><button onClick={onOpen} aria-label="Ver comentarios">◯ {comments}</button></div></div>
+    <div className="photo-meta"><span>Por <b>{photo.userName}</b></span><div className="photo-actions"><button className={liked ? "liked" : ""} onClick={() => void toggle()} disabled={busy} aria-label={liked ? "Quitar me gusta" : "Me gusta"}>♥ {likes}</button><button onClick={onOpen} aria-label="Ver comentarios">◯ {comments}</button></div></div>
   </article>;
 }
 
