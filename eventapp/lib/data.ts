@@ -25,4 +25,24 @@ export async function searchGuests(eventId: string, text: string) {
   const snap = await getDocs(q); return snap.docs.map((item) => ({ id: item.id, ...item.data() }));
 }
 export async function listSongs(eventId: string) { const fire = db(); if (!fire) return []; try { const snap = await getDocs(query(collection(fire, "events", eventId, "songs"), orderBy("created_at", "desc"))); return snap.docs.map((x) => ({ id: x.id, ...x.data() })); } catch { return listEventCollection(eventId, "songs"); } }
-export async function backend(path: string, init?: RequestInit) { const response = await fetch(`${BACKEND}${path}`, { ...init, headers: { "Content-Type": "application/json", ...(init?.headers || {}) } }); if (!response.ok) throw new Error(`Error ${response.status}`); return response.json(); }
+async function responseJson(response: Response) {
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = typeof data?.error === "string" ? data.error : `Error ${response.status}`;
+    throw new Error(message);
+  }
+  return data;
+}
+
+export async function backend(path: string, init?: RequestInit) {
+  const response = await fetch(`${BACKEND}${path}`, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+  });
+  return responseJson(response);
+}
+
+export async function backendForm(path: string, form: FormData, init?: Omit<RequestInit, "body">) {
+  const response = await fetch(`${BACKEND}${path}`, { ...init, method: init?.method || "POST", body: form });
+  return responseJson(response);
+}

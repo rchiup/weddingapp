@@ -11,11 +11,12 @@ export type EventSettings = {
 export type AppSession = {
   userId: string; userName: string; eventId: string; eventName: string;
   eventDate: string; eventActive: boolean; isAdmin: boolean; isSingle: boolean;
-  singleEventId: string; settings: EventSettings;
+  singleEventId: string; declinedSingleEventId: string; locationPromptedEventId: string;
+  autoCheckinEventId: string; settings: EventSettings;
 };
 
 const defaults: EventSettings = { guestsVisible: true, tablesVisible: true, singlesEnabled: true, photosEnabled: true, giftRegistryEnabled: true, giftRegistryProvider: "other", giftRegistryCode: "DEMO", adminExportEnabled: true };
-const empty: AppSession = { userId: "", userName: "", eventId: "", eventName: "", eventDate: "", eventActive: false, isAdmin: false, isSingle: false, singleEventId: "", settings: defaults };
+const empty: AppSession = { userId: "", userName: "", eventId: "", eventName: "", eventDate: "", eventActive: false, isAdmin: false, isSingle: false, singleEventId: "", declinedSingleEventId: "", locationPromptedEventId: "", autoCheckinEventId: "", settings: defaults };
 const key = "wedding_app_session";
 
 type ContextValue = { session: AppSession; ready: boolean; update: (value: Partial<AppSession>) => void; join: (name: string, code: string) => void; leave: () => void };
@@ -40,7 +41,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const code = rawCode.trim().toUpperCase();
       const isAdmin = code.endsWith("-NOVIOS");
       const eventId = isAdmin ? code.slice(0, -7) : code;
-      persist({ ...session, userName: name.trim(), eventId, eventName: `Evento ${eventId}`, eventDate: new Date().toISOString(), eventActive: true, isAdmin, settings: defaults });
+      persist({ ...session, userName: name.trim(), eventId, eventName: `Evento ${eventId}`, eventDate: new Date().toISOString(), eventActive: true, isAdmin, declinedSingleEventId: "", locationPromptedEventId: "", autoCheckinEventId: "", settings: defaults });
     },
     leave: () => persist({ ...empty, userId: session.userId }),
   }), [session, ready]);
