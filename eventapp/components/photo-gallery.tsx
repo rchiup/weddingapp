@@ -103,14 +103,18 @@ function PhotoTile({ photo, onOpen }: { photo: Photo; onOpen: () => void }) {
   const lastTapAt = useRef(0);
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const burstTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const interactionVersion = useRef(0);
 
   useEffect(() => {
+    const startedAtVersion = interactionVersion.current;
     Promise.all([
       backend(`/api/gallery/photos/${photo.photoId}/likes?userId=${encodeURIComponent(session.userId)}`),
       backend(`/api/gallery/photos/${photo.photoId}/comments/count`),
     ]).then(([likeData, commentData]) => {
-      setLikes(Number(likeData.count || 0));
-      setLiked(Boolean(likeData.userLiked));
+      if (interactionVersion.current === startedAtVersion) {
+        setLikes(Number(likeData.count || 0));
+        setLiked(Boolean(likeData.userLiked));
+      }
       setComments(Number(commentData.count || 0));
     }).catch(() => { /* la foto sigue disponible aunque fallen los contadores */ });
   }, [photo.photoId, session.userId]);
@@ -131,6 +135,7 @@ function PhotoTile({ photo, onOpen }: { photo: Photo; onOpen: () => void }) {
   const toggle = async (forceLike = false) => {
     if (busy) return;
     if (forceLike && liked) { burst(); return; }
+    interactionVersion.current += 1;
     const previousLiked = liked; const previousLikes = likes;
     const nextLiked = forceLike ? true : !previousLiked;
     setLiked(nextLiked); setLikes(Math.max(0, previousLikes + (nextLiked ? 1 : -1))); setBusy(true);
