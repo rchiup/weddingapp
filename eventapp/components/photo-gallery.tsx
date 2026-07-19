@@ -103,20 +103,22 @@ function PhotoTile({ photo, onOpen }: { photo: Photo; onOpen: () => void }) {
   const lastTapAt = useRef(0);
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const burstTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const interactionVersion = useRef(0);
+  const hasInteracted = useRef(false);
+  const initialLikeRequest = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    const startedAtVersion = interactionVersion.current;
-    Promise.all([
-      backend(`/api/gallery/photos/${photo.photoId}/likes?userId=${encodeURIComponent(session.userId)}`),
-      backend(`/api/gallery/photos/${photo.photoId}/comments/count`),
-    ]).then(([likeData, commentData]) => {
-      if (interactionVersion.current === startedAtVersion) {
+    const controller = new AbortController();
+    initialLikeRequest.current = controller;
+    backend(`/api/gallery/photos/${photo.photoId}/likes?userId=${encodeURIComponent(session.userId)}`, { signal: controller.signal }).then((likeData) => {
+      if (!hasInteracted.current) {
         setLikes(Number(likeData.count || 0));
         setLiked(Boolean(likeData.userLiked));
       }
+    }).catch(() => { /* la foto sigue disponible aunque falle el contador */ });
+    backend(`/api/gallery/photos/${photo.photoId}/comments/count`).then((commentData) => {
       setComments(Number(commentData.count || 0));
-    }).catch(() => { /* la foto sigue disponible aunque fallen los contadores */ });
+    }).catch(() => { /* los comentarios se cargan nuevamente al abrir la foto */ });
+    return () => controller.abort();
   }, [photo.photoId, session.userId]);
 
   useEffect(() => () => {
@@ -135,7 +137,8 @@ function PhotoTile({ photo, onOpen }: { photo: Photo; onOpen: () => void }) {
   const toggle = async (forceLike = false) => {
     if (busy) return;
     if (forceLike && liked) { burst(); return; }
-    interactionVersion.current += 1;
+    hasInteracted.current = true;
+    initialLikeRequest.current?.abort();
     const previousLiked = liked; const previousLikes = likes;
     const nextLiked = forceLike ? true : !previousLiked;
     setLiked(nextLiked); setLikes(Math.max(0, previousLikes + (nextLiked ? 1 : -1))); setBusy(true);
