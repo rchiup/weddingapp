@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default async function Page({searchParams}:{searchParams:Promise<{reason?:string}>}){const p=await searchParams;return <main className="center"><div className="card" style={{maxWidth:440,textAlign:"center"}}><h1>Evento no disponible</h1><p>{p.reason||"Este evento no está activo en este momento."}</p><Link className="primary button-link" href="/entry">Volver al inicio</Link></div></main>}

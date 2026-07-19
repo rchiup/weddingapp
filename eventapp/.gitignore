@@ -1,0 +1,17 @@
+.next/
+node_modules/
+.DS_Store
+*.log
+.env
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
+out/
+.cursor
+
+# Firebase Admin SDK (nunca commitear)
+*-firebase-adminsdk-*.json
+weddingapp-local-firebase-adminsdk-*.json
+**/firebase-adminsdk*.json
+.vercel

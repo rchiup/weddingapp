@@ -3,6 +3,12 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // --- DEMO: permitir likes en fotos ---
+    // La galería necesita leer los documentos padre; antes sólo estaban
+    // habilitadas sus subcolecciones y Next.js recibía permission-denied.
+    match /events/{eventId}/photos/{photoId} {
+      allow read, write: if true;
+    }
+
     match /events/{eventId}/photos/{photoId}/likes/{userId} {
       allow read, write;
     }
